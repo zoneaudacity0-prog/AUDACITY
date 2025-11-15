@@ -2,84 +2,355 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Audacity Zone — Secure Financial Data Sharing</title>
-  <meta name="description" content="Audacity Zone prototype landing page — secure financial data sharing for borrowers and institutions" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Audacity Zone — Prototype (Borrower & Institution)</title>
+  <meta name="description" content="Client-side prototype: upload bank statements, parse CSV, create secure share links, institution view, audit log. NOT for production." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #f8f9fb; color: #333; }
-    header { padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top:0; }
-    nav a { margin-left: 20px; text-decoration: none; color: #333; font-weight: 600; }
-    .hero { padding: 80px 40px; display: flex; justify-content: space-between; align-items: center; }
-    .hero-text { max-width: 500px; }
-    .hero-text h1 { font-size: 48px; margin-bottom: 20px; }
-    .hero-text p { font-size: 18px; line-height: 1.6; margin-bottom: 30px; }
-    .btn-primary { padding: 14px 28px; background: #0a7cff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: bold; }
-    .section { padding: 80px 40px; text-align: center; }
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 50px; }
-    .feature-box { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
-    footer { padding: 40px; text-align: center; background: #fff; margin-top: 60px; font-size: 14px; color:#666; }
-    @media(max-width:900px){ .hero{flex-direction:column; text-align:center;} .features{grid-template-columns:1fr;} }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace; }
+    .small { font-size: 12px; }
+    .chip { background:#eef2ff; padding:6px 10px; border-radius:999px; font-weight:600 }
   </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800">
+  <div class="max-w-6xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Audacity Zone — Prototype</h1>
+        <p class="text-sm text-slate-600">Upload statements, parse CSV, generate secure share links, institution viewer & audit log (client-side prototype).</p>
+      </div>
+      <div class="text-right">
+        <div class="text-sm">Mode: <span id="modeLabel" class="font-medium">Prototype</span></div>
+      </div>
+    </header>
 
-<header>
-  <div class="logo" style="font-size:24px; font-weight:700;">Audacity Zone</div>
-  <nav>
-    <a href="#how">How it Works</a>
-    <a href="#features">Features</a>
-    <a href="#contact">Contact</a>
-  </nav>
-</header>
+    <nav class="mb-4 flex gap-2">
+      <button id="tabBorrower" class="px-3 py-2 bg-white rounded shadow">Borrower</button>
+      <button id="tabInstitution" class="px-3 py-2 bg-white rounded shadow">Institution</button>
+      <button id="tabAdmin" class="px-3 py-2 bg-white rounded shadow">Admin / Audit</button>
+      <div class="ml-auto flex items-center gap-2">
+        <span class="chip">Local demo</span>
+      </div>
+    </nav>
 
-<section class="hero">
-  <div class="hero-text">
-    <h1>Secure Financial Data Sharing</h1>
-    <p>Audacity Zone helps borrowers safely share bank statements and financial history with lenders and institutions. Fast, simple, and secure — built for the future of financial access.</p>
-    <a class="btn-primary" href="#get-started">Get Started</a>
+    <main>
+      <!-- BORROWER VIEW -->
+      <section id="viewBorrower">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <form id="borrowerForm" class="md:col-span-1 bg-white p-4 rounded shadow space-y-3">
+            <h2 class="text-lg font-semibold">Create / Update Borrower</h2>
+            <label class="block text-sm">Name <input id="b_name" class="mt-1 block w-full border p-2 rounded" required></label>
+            <label class="block text-sm">TIN / ID <input id="b_tin" class="mt-1 block w-full border p-2 rounded"></label>
+            <label class="block text-sm">Company <input id="b_company" class="mt-1 block w-full border p-2 rounded"></label>
+            <label class="block text-sm">Consent to share <input id="b_consent" type="checkbox" class="ml-2" checked></label>
+            <label class="block text-sm">Upload (CSV/PDF/Image) <input id="b_file" type="file" accept=".csv,application/pdf,image/*" class="mt-1 block w-full" multiple></label>
+            <div class="flex gap-2">
+              <button class="bg-blue-600 text-white px-4 py-2 rounded" type="submit">Save</button>
+              <button id="b_reset" type="button" class="bg-gray-100 px-3 py-2 rounded">Reset</button>
+            </div>
+
+            <details class="mt-2 bg-slate-50 p-2 rounded small">
+              <summary class="font-medium">Prototype notes</summary>
+              <ul class="small mt-2">
+                <li>All data is stored in <code class="mono">localStorage</code>.</li>
+                <li>This is a demo — not secure. Do not use for real PII.</li>
+              </ul>
+            </details>
+
+          </form>
+
+          <section class="md:col-span-2 bg-white p-4 rounded shadow">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h2 class="text-lg font-semibold">My Borrowers</h2>
+                <p class="text-sm text-slate-500">Search, open details, create share link.</p>
+              </div>
+              <div class="flex gap-2">
+                <input id="b_search" placeholder="Search name, tin, company" class="border p-2 rounded" />
+                <button id="b_import" class="bg-emerald-100 px-3 py-2 rounded">Import sample</button>
+                <button id="b_export" class="bg-amber-100 px-3 py-2 rounded">Export CSV</button>
+              </div>
+            </div>
+
+            <div id="borrowerList" class="space-y-3 max-h-72 overflow-auto"></div>
+          </section>
+        </div>
+
+        <!-- Detail modal area -->
+        <div id="detailPanel" class="fixed inset-0 bg-black/30 hidden items-center justify-center p-4">
+          <div class="bg-white rounded shadow-lg w-full max-w-3xl p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 id="detailName" class="text-lg font-semibold">Borrower details</h3>
+              <div class="flex gap-2">
+                <button id="copyShare" class="px-3 py-1 bg-amber-100 rounded text-amber-800 text-sm">Copy link</button>
+                <button id="closeDetail" class="px-3 py-1 bg-gray-100 rounded">Close</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-slate-600">TIN / ID</p>
+                <div id="detailTin" class="mono mt-1"></div>
+
+                <p class="text-sm text-slate-600 mt-3">Company</p>
+                <div id="detailCompany" class="mt-1"></div>
+
+                <p class="text-sm text-slate-600 mt-3">Files</p>
+                <ul id="detailFiles" class="list-disc ml-5 mt-1 text-sm"></ul>
+
+                <div class="mt-4">
+                  <label class="block text-sm">Share to institution</label>
+                  <select id="detailInstitution" class="border p-2 rounded mt-1 w-full text-sm">
+                    <option>Bank A</option>
+                    <option>Bank B</option>
+                    <option>Microfinance</option>
+                  </select>
+                  <div class="mt-3 flex gap-2">
+                    <button id="genShare" class="bg-green-600 text-white px-3 py-2 rounded">Generate link</button>
+                    <button id="revokeShare" class="bg-red-100 text-red-700 px-3 py-2 rounded">Revoke</button>
+                  </div>
+
+                  <div id="shareBox" class="mt-3 p-2 rounded bg-slate-50 hidden">
+                    <div class="small">Share link (simulated)</div>
+                    <div id="shareLink" class="mono break-all"></div>
+                    <div id="qrcode" class="mt-2"></div>
+                    <div class="mt-2 small text-slate-500">Expires in <span id="shareExpires">—</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-sm text-slate-600">CSV Preview / Notes</p>
+                <pre id="csvPreview" class="mono bg-slate-50 p-2 rounded h-64 overflow-auto text-xs"></pre>
+                <div class="mt-3">
+                  <button id="auditBtn" class="bg-gray-100 px-3 py-2 rounded small">View audit record</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INSTITUTION VIEW -->
+      <section id="viewInstitution" class="hidden">
+        <div class="bg-white p-4 rounded shadow mb-4">
+          <h2 class="text-lg font-semibold">Institution Viewer (Simulated)</h2>
+          <p class="text-sm text-slate-500">Enter a share link below to view a borrower's submitted data (simulated secure viewer).</p>
+          <div class="mt-3 flex gap-2">
+            <input id="inst_link" class="flex-1 border p-2 rounded" placeholder="Paste share link" />
+            <button id="inst_open" class="bg-blue-600 text-white px-3 py-2 rounded">Open</button>
+          </div>
+        </div>
+
+        <div id="instViewer" class="bg-white p-4 rounded shadow hidden">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 id="inst_name" class="text-lg font-semibold"></h3>
+              <div id="inst_meta" class="text-sm text-slate-500"></div>
+            </div>
+            <div class="text-sm text-slate-500">Viewed <span id="inst_viewed_at"></span></div>
+          </div>
+
+          <div class="mt-4">
+            <h4 class="font-medium">Files</h4>
+            <ul id="inst_files" class="list-disc ml-5 mt-2 text-sm"></ul>
+          </div>
+
+          <div class="mt-4">
+            <h4 class="font-medium">CSV / Transactions</h4>
+            <pre id="inst_csv" class="mono bg-slate-50 p-2 rounded h-48 overflow-auto text-xs"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADMIN / AUDIT -->
+      <section id="viewAdmin" class="hidden">
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-lg font-semibold">Audit Log</h2>
+          <p class="text-sm text-slate-500">All share actions, views and revocations (local demo).</p>
+          <div id="auditList" class="mt-3 max-h-96 overflow-auto text-sm"></div>
+          <div class="mt-3 flex gap-2">
+            <button id="clearAudit" class="bg-red-100 px-3 py-2 rounded">Clear Audit</button>
+            <button id="exportAudit" class="bg-amber-100 px-3 py-2 rounded">Export Audit CSV</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="mt-6 text-xs text-slate-500">Prototype — client-side only. For production you need server, auth, encryption, consent flows, and legal agreements.</footer>
   </div>
-  <img src="https://via.placeholder.com/450x320" alt="Audacity Zone Preview" style="border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.1);" />
-</section>
 
-<section id="how" class="section">
-  <h2>How Audacity Zone Works</h2>
-  <p style="max-width:700px; margin:auto;">Upload your statements, verify your identity, and share your financial data instantly with any licensed institution. The process is encrypted end‑to‑end.</p>
-</section>
+  <script>
+    // Data model & storage keys
+    const LS_B = 'audacity_borrowers_v2';
+    const LS_A = 'audacity_audit_v2';
 
-<section id="features" class="section">
-  <h2>Platform Features</h2>
+    // Elements
+    const tabBorrower = document.getElementById('tabBorrower');
+    const tabInstitution = document.getElementById('tabInstitution');
+    const tabAdmin = document.getElementById('tabAdmin');
+    const viewBorrower = document.getElementById('viewBorrower');
+    const viewInstitution = document.getElementById('viewInstitution');
+    const viewAdmin = document.getElementById('viewAdmin');
 
-  <div class="features">
-    <div class="feature-box">
-      <i class="fa-solid fa-shield-halved" style="font-size:40px; color:#0a7cff;"></i>
-      <h3>Secure Encryption</h3>
-      <p>Your data is protected with enterprise‑grade encryption standards.</p>
-    </div>
+    const borrowerForm = document.getElementById('borrowerForm');
+    const b_name = document.getElementById('b_name');
+    const b_tin = document.getElementById('b_tin');
+    const b_company = document.getElementById('b_company');
+    const b_consent = document.getElementById('b_consent');
+    const b_file = document.getElementById('b_file');
+    const b_search = document.getElementById('b_search');
+    const b_import = document.getElementById('b_import');
+    const b_export = document.getElementById('b_export');
+    const borrowerList = document.getElementById('borrowerList');
 
-    <div class="feature-box">
-      <i class="fa-solid fa-cloud-arrow-up" style="font-size:40px; color:#0a7cff;"></i>
-      <h3>Easy Upload</h3>
-      <p>Upload PDFs, images, or digital statements in seconds.</p>
-    </div>
+    const detailPanel = document.getElementById('detailPanel');
+    const detailName = document.getElementById('detailName');
+    const detailTin = document.getElementById('detailTin');
+    const detailCompany = document.getElementById('detailCompany');
+    const detailFiles = document.getElementById('detailFiles');
+    const csvPreview = document.getElementById('csvPreview');
+    const detailInstitution = document.getElementById('detailInstitution');
+    const genShare = document.getElementById('genShare');
+    const revokeShare = document.getElementById('revokeShare');
+    const shareBox = document.getElementById('shareBox');
+    const shareLink = document.getElementById('shareLink');
+    const shareExpires = document.getElementById('shareExpires');
+    const qrcodeEl = document.getElementById('qrcode');
+    const copyShare = document.getElementById('copyShare');
+    const auditBtn = document.getElementById('auditBtn');
 
-    <div class="feature-box">
-      <i class="fa-solid fa-building-columns" style="font-size:40px; color:#0a7cff;"></i>
-      <h3>Institution Access</h3>
-      <p>Instantly share your verified financial data with banks or lenders.</p>
-    </div>
-  </div>
-</section>
+    const inst_link = document.getElementById('inst_link');
+    const inst_open = document.getElementById('inst_open');
+    const instViewer = document.getElementById('instViewer');
+    const inst_name = document.getElementById('inst_name');
+    const inst_meta = document.getElementById('inst_meta');
+    const inst_files = document.getElementById('inst_files');
+    const inst_csv = document.getElementById('inst_csv');
+    const inst_viewed_at = document.getElementById('inst_viewed_at');
 
-<section id="contact" class="section">
-  <h2>Contact Us</h2>
-  <p>Email: support@manka.tz</p>
-</section>
+    const auditList = document.getElementById('auditList');
+    const clearAudit = document.getElementById('clearAudit');
+    const exportAudit = document.getElementById('exportAudit');
 
-<footer>
-  © 2025 Audacity Zone Prototype. All rights reserved.
-</footer>
+    // State
+    let borrowers = loadBorrowers();
+    let audit = loadAudit();
+    let activeId = null;
 
+    renderBorrowerList();
+    renderAudit();
+
+    // Tabs
+    tabBorrower.addEventListener('click', ()=>{ showTab('borrower') });
+    tabInstitution.addEventListener('click', ()=>{ showTab('institution') });
+    tabAdmin.addEventListener('click', ()=>{ showTab('admin') });
+
+    function showTab(which){
+      viewBorrower.classList.toggle('hidden', which!=='borrower');
+      viewInstitution.classList.toggle('hidden', which!=='institution');
+      viewAdmin.classList.toggle('hidden', which!=='admin');
+    }
+
+    // Borrower form submit
+    borrowerForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      if (!b_consent.checked) return alert('Borrower consent required to save.');
+      const files = [];
+      if (b_file.files.length>0){
+        for (let f of b_file.files){
+          const meta = { name: f.name, type: f.type, size: f.size };
+          if (f.name.toLowerCase().endsWith('.csv')) {
+            const text = await f.text();
+            meta.csvRaw = text.slice(0,20000);
+            meta.parsed = parseCSV(text);
+          }
+          files.push(meta);
+        }
+      }
+      const rec = { id: idGen(), name: b_name.value.trim(), tin: b_tin.value.trim(), company: b_company.value.trim(), files, consent: true, createdAt: new Date().toISOString(), shared: null };
+      borrowers.push(rec); saveBorrowers(); renderBorrowerList(); borrowerForm.reset(); alert('Borrower saved locally.');
+    });
+
+    document.getElementById('b_reset').addEventListener('click', ()=> borrowerForm.reset());
+    b_import.addEventListener('click', importSample);
+    b_export.addEventListener('click', exportAllBorrowers);
+    b_search.addEventListener('input', renderBorrowerList);
+
+    // Detail open/close
+    document.getElementById('closeDetail').addEventListener('click', ()=> detailPanel.classList.add('hidden'));
+
+    // Generate share link
+    genShare.addEventListener('click', ()=>{
+      if (!activeId) return; const inst = detailInstitution.value; const rec = borrowers.find(b=>b.id===activeId);
+      if (!rec) return; if (!rec.consent) return alert('Borrower has not consented.');
+      // generate token with expiry (simulated) and store in record
+      const token = idGen()+'.'+Math.floor(Date.now()/1000+3600); // expires in 1 hour
+      const link = location.origin + location.pathname + '#shared/' + rec.id + '/' + encodeURIComponent(inst) + '/' + token;
+      rec.shared = { institution: inst, link, token, expiresAt: Date.now()+3600*1000 };
+      saveBorrowers(); logAudit('share_generated', rec.id, inst, link);
+      populateDetail(rec);
+      alert('Share link generated. Copy or scan QR to send.');
+    });
+
+    revokeShare.addEventListener('click', ()=>{
+      if (!activeId) return; const rec = borrowers.find(b=>b.id===activeId); if (!rec || !rec.shared) return alert('No active share');
+      if (!confirm('Revoke share?')) return; logAudit('share_revoked', rec.id, rec.shared.institution, rec.shared.link); rec.shared=null; saveBorrowers(); populateDetail(rec);
+    });
+
+    copyShare.addEventListener('click', ()=>{ if (!activeId) return; const rec=borrowers.find(b=>b.id===activeId); if (rec && rec.shared) { navigator.clipboard.writeText(rec.shared.link); alert('Link copied'); } else alert('No link'); });
+
+    auditBtn.addEventListener('click', ()=>{ if (!activeId) return; const rec=borrowers.find(b=>b.id===activeId); if (!rec) return alert('No record'); alert('Audit entries for this borrower:\n'+JSON.stringify(audit.filter(a=>a.borrowerId===rec.id), null,2)); });
+
+    // Institution open
+    inst_open.addEventListener('click', ()=>{
+      const href = inst_link.value.trim(); if(!href) return alert('Paste share link');
+      // parse simulated link: #shared/{id}/{inst}/{token}
+      try{ const parts = href.split('#shared/')[1].split('/'); const id = parts[0]; const inst = decodeURIComponent(parts[1]||''); const token = parts[2]||''; openShared(id, inst, token); }
+      catch(e){ alert('Invalid link format'); }
+    });
+
+    function openShared(id, inst, token){
+      const rec = borrowers.find(b=>b.id===id);
+      if (!rec) return alert('Record not found locally. In real system the link would open a secure viewer.');
+      // validate token expiry (simulated)
+      const now = Date.now(); if (!rec.shared || rec.shared.token!==token) alert('Warning: token mismatch (simulated)');
+      instViewer.classList.remove('hidden'); inst_name.textContent = rec.name; inst_meta.textContent = `${rec.company} • ${rec.tin}`; inst_files.innerHTML=''; for (let f of rec.files) { const li=document.createElement('li'); li.textContent=`${f.name} (${f.type||'n/a'})`; inst_files.appendChild(li);} inst_csv.textContent = rec.files.find(x=>x.csvRaw)?.csvRaw||'No CSV preview'; inst_viewed_at.textContent = new Date().toLocaleString(); logAudit('institution_view', rec.id, inst, href);
+    }
+
+    // ADMIN actions
+    clearAudit.addEventListener('click', ()=>{ if(!confirm('Clear audit?')) return; audit=[]; saveAudit(); renderAudit(); });
+    exportAudit.addEventListener('click', ()=>{ if (!audit.length) return alert('No audit'); const rows=['timestamp,event,borrower,inst,link,by']; for (let a of audit) rows.push(`${a.ts},${a.event},${a.borrowerId||''},${a.institution||''},"${a.link||''}",${a.by||''}`); const blob=new Blob([rows.join('\n')], {type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='audit.csv'; a.click(); });
+
+    // Rendering list
+    function renderBorrowerList(){ borrowerList.innerHTML=''; const q=b_search.value.trim().toLowerCase(); const data = borrowers.filter(b=>!q||b.name.toLowerCase().includes(q)|| (b.tin||'').toLowerCase().includes(q)|| (b.company||'').toLowerCase().includes(q)); if (!data.length) borrowerList.innerHTML='<div class="text-sm text-slate-500">No borrowers yet.</div>'; for (let rec of data){ const card=document.createElement('div'); card.className='p-3 border rounded flex items-start justify-between gap-3 bg-white'; card.innerHTML=`<div><div class="font-medium">${esc(rec.name)}</div><div class="text-xs text-slate-500">${esc(rec.company)} • ${esc(rec.tin)}</div><div class="text-xs mt-1 text-slate-600">Files: ${rec.files.length}</div>${rec.shared?`<div class="text-xs text-green-700 mt-1">Shared to: ${esc(rec.shared.institution)}</div>`:''}</div><div class="flex flex-col gap-2"><button data-id="${rec.id}" class="viewBtn bg-blue-50 text-blue-700 px-3 py-1 rounded text-sm">View</button><button data-id="${rec.id}" class="delBtn bg-red-50 text-red-700 px-3 py-1 rounded text-sm">Delete</button></div>`; borrowerList.appendChild(card); }
+      document.querySelectorAll('.viewBtn').forEach(b=>b.addEventListener('click', e=>{ openDetail(e.currentTarget.dataset.id); }));
+      document.querySelectorAll('.delBtn').forEach(b=>b.addEventListener('click', e=>{ if(!confirm('Delete?')) return; const id=e.currentTarget.dataset.id; borrowers=borrowers.filter(x=>x.id!==id); saveBorrowers(); renderBorrowerList(); }));
+    }
+
+    function openDetail(id){ activeId=id; const rec=borrowers.find(b=>b.id===id); if(!rec) return; populateDetail(rec); detailPanel.classList.remove('hidden'); }
+    function populateDetail(rec){ detailName.textContent=rec.name||'--'; detailTin.textContent=rec.tin||'--'; detailCompany.textContent=rec.company||'--'; detailFiles.innerHTML=''; for (let f of rec.files){ const li=document.createElement('li'); li.textContent=`${f.name} (${f.type||'n/a'})`; detailFiles.appendChild(li);} csvPreview.textContent = rec.files.find(x=>x.csvRaw)?.csvRaw||'No CSV preview available.'; if (rec.shared){ shareBox.classList.remove('hidden'); shareLink.textContent = rec.shared.link; shareExpires.textContent = new Date(rec.shared.expiresAt).toLocaleString(); qrcodeEl.innerHTML=''; new QRCode(qrcodeEl, { text: rec.shared.link, width: 128, height: 128 }); } else { shareBox.classList.add('hidden'); shareLink.textContent=''; shareExpires.textContent='—'; qrcodeEl.innerHTML=''; } }
+
+    // Utilities: storage, id gen, parseCSV, audit
+    function loadBorrowers(){ try{ return JSON.parse(localStorage.getItem(LS_B))||[] }catch(e){return []}};
+    function saveBorrowers(){ localStorage.setItem(LS_B, JSON.stringify(borrowers)); }
+    function loadAudit(){ try{ return JSON.parse(localStorage.getItem(LS_A))||[] }catch(e){return []}};
+    function saveAudit(){ localStorage.setItem(LS_A, JSON.stringify(audit)); }
+    function idGen(){ return 'id_'+Math.random().toString(36).slice(2,9); }
+    function esc(s){ return String(s||'').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    function parseCSV(text){ // very simple CSV parse — for demo only
+      const lines = text.split(/\r?\n/).filter(Boolean); const headers = lines[0].split(',').map(h=>h.trim()); const rows = []; for (let i=1;i<lines.length;i++){ const cols = lines[i].split(','); const obj={}; for (let j=0;j<headers.length;j++) obj[headers[j]] = cols[j]||''; rows.push(obj);} return { headers, rows } }
+
+    function logAudit(event, borrowerId, institution, link){ const entry = { ts: new Date().toISOString(), event, borrowerId, institution, link, by: 'local-prototype' }; audit.push(entry); saveAudit(); renderAudit(); }
+
+    function renderAudit(){ auditList.innerHTML = ''; if(!audit.length) auditList.innerHTML = '<div class="text-sm text-slate-500">No audit entries yet.</div>'; for (let a of audit.slice().reverse()){ const d = document.createElement('div'); d.className='p-2 border-b'; d.innerHTML = `<div class="text-xs text-slate-500">${a.ts} • ${a.by}</div><div><strong>${a.event}</strong> — borrower: ${a.borrowerId||''} inst: ${a.institution||''}</div><div class="text-xs break-all">${a.link||''}</div>`; auditList.appendChild(d);} }
+
+    function importSample(){ const sampleCsv = 'Date,Description,Debit,Credit\n2025-01-01,Sale,0,1000000\n2025-01-02,Purchase,500000,0\n'; const rec = { id:idGen(), name:'Sample Borrower', tin:'TIN-001', company:'Sample Co', files:[{name:'statement.csv', type:'text/csv', size:sampleCsv.length, csvRaw:sampleCsv, parsed:parseCSV(sampleCsv)}], consent:true, createdAt:new Date().toISOString(), shared:null }; borrowers.push(rec); saveBorrowers(); renderBorrowerList(); alert('Sample borrower added'); }
+
+    function exportAllBorrowers(){ if(!borrowers.length) return alert('No borrowers'); const rows=['id,name,tin,company,filesCount,sharedInstitution,sharedLink,createdAt']; for (let b of borrowers) rows.push(`${b.id},"${b.name}",${b.tin||''},"${b.company||''}",${b.files.length},${b.shared?b.shared.institution:''},${b.shared?`"${b.shared.link}"`:''},${b.createdAt}`); const blob=new Blob([rows.join('\n')], {type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='borrowers_export.csv'; a.click(); }
+
+  </script>
 </body>
 </html>
-
