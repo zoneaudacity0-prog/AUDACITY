@@ -1,189 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bank Statement Analyzer Dashboard</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-body { display: flex; min-height: 100vh; background: #f4f6f8; }
-
-.sidebar { width: 250px; background: #1e1e2f; color: #fff; display: flex; flex-direction: column; padding: 20px; }
-.sidebar h2 { margin-bottom: 40px; font-size: 24px; }
-.nav-link { padding: 15px 20px; margin-bottom: 10px; background: #2c2c3e; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
-.nav-link:hover, .nav-link.active { background: #4b4b6b; }
-
-.main { flex: 1; padding: 30px; overflow-y: auto; }
-.module { display: none; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-.module.active { display: block; }
-
-#drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 40px; text-align: center; color: #666; margin-bottom: 20px; cursor: pointer; transition: background 0.3s; }
-#drop-zone.hover { background: #f0f0f0; }
-
-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 16px; }
-table th, table td { border: 1px solid #ddd; padding: 12px; text-align: center; }
-table th { background: #f4f6f8; font-weight: 600; }
-.grand-total, .average { font-weight: bold; background: #e0e0e0; }
-
-button { padding: 12px 20px; border: none; background: #1e1e2f; color: #fff; border-radius: 8px; cursor: pointer; margin-top: 10px; transition: background 0.3s; }
-button:hover { background: #4b4b6b; }
-
-@media (max-width: 768px) {
-  body { flex-direction: column; }
-  .sidebar { width: 100%; flex-direction: row; overflow-x: auto; }
-  .sidebar h2 { display: none; }
-  .nav-link { flex: 1; margin: 5px; text-align: center; }
-  .main { padding: 20px; }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<div class="sidebar">
-  <h2>Dashboard</h2>
-  <div class="nav-link active" data-target="moduleA">OCR Upload</div>
-  <div class="nav-link" data-target="moduleB">AI Arrears Interpretation</div>
-  <div class="nav-link" data-target="moduleC">Report Generator</div>
-</div>
+<body class="bg-gray-100 font-sans">
+  <div class="flex min-h-screen">
 
-<div class="main">
-  <div id="moduleA" class="module active">
-    <h1>OCR Upload</h1>
-    <div id="drop-zone">Drag & Drop Excel or PDF here, or click to select file</div>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf" style="display:none" />
-    <button id="analyzeBtn">Analyze Bank Statement</button>
-    <div id="summaryContainer"></div>
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white shadow-md p-6 flex flex-col">
+      <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+      <nav class="flex flex-col space-y-4">
+        <button onclick="showModule('moduleA')" class="hover:bg-gray-200 p-2 rounded text-left">OCR Upload</button>
+        <button onclick="showModule('moduleB')" class="hover:bg-gray-200 p-2 rounded text-left">AI Statement Analysis</button>
+        <button onclick="showModule('moduleC')" class="hover:bg-gray-200 p-2 rounded text-left">Report Generator</button>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6">
+      <!-- Module A: OCR Upload -->
+      <section id="moduleA" class="module">
+        <h2 class="text-xl font-bold mb-4">Upload Bank Statement</h2>
+        <div class="border-2 border-dashed border-gray-400 p-6 rounded bg-white text-center mb-4">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf" class="w-full cursor-pointer" multiple>
+          <p class="mt-2 text-gray-500">Drag & drop Excel or PDF files here</p>
+        </div>
+        <button onclick="processFiles()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Analyze Statement</button>
+      </section>
+
+      <!-- Module B: AI Statement Analysis -->
+      <section id="moduleB" class="module hidden">
+        <h2 class="text-xl font-bold mb-4">AI Statement Analysis</h2>
+        <p class="mb-2">This simulates AI analyzing your uploaded statement.</p>
+        <button onclick="generateSummary()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mb-4">Run Analysis</button>
+        <pre id="analysisOutput" class="bg-white p-4 rounded shadow overflow-x-auto"></pre>
+      </section>
+
+      <!-- Module C: Report Generator -->
+      <section id="moduleC" class="module hidden">
+        <h2 class="text-xl font-bold mb-4">Cash Flow Summary Report</h2>
+        <div class="overflow-x-auto bg-white p-4 rounded shadow">
+          <h3 class="font-bold mb-2">CASH FLOW SUMMARY - CRDB BANK</h3>
+          <h4 class="mb-4">PREMIER GIRLS SEC SCHOOL 2024-2025</h4>
+          <table class="min-w-full border border-gray-300">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="border px-4 py-2">S/N</th>
+                <th class="border px-4 py-2">Month</th>
+                <th class="border px-4 py-2">Debit</th>
+                <th class="border px-4 py-2">Credit</th>
+              </tr>
+            </thead>
+            <tbody id="reportTable" class="text-gray-700">
+              <!-- Rows will be dynamically added -->
+            </tbody>
+            <tfoot class="bg-gray-100 font-bold">
+              <tr>
+                <td colspan="2" class="border px-4 py-2 text-right">Total</td>
+                <td id="totalDebit" class="border px-4 py-2"></td>
+                <td id="totalCredit" class="border px-4 py-2"></td>
+              </tr>
+              <tr>
+                <td colspan="2" class="border px-4 py-2 text-right">Average</td>
+                <td id="avgDebit" class="border px-4 py-2"></td>
+                <td id="avgCredit" class="border px-4 py-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <div id="moduleB" class="module">
-    <h1>AI Arrears Interpretation</h1>
-    <p>Analysis of arrears will appear here.</p>
-  </div>
-
-  <div id="moduleC" class="module">
-    <h1>Report Generator</h1>
-    <p>Reports generated from analyzed data.</p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
 <script>
-const links = document.querySelectorAll('.nav-link');
-const modules = document.querySelectorAll('.module');
-links.forEach(link => {
-  link.addEventListener('click', () => {
-    links.forEach(l => l.classList.remove('active'));
-    modules.forEach(m => m.classList.remove('active'));
-    link.classList.add('active');
-    document.getElementById(link.dataset.target).classList.add('active');
-  });
-});
+  const modules = document.querySelectorAll('.module');
 
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('fileInput');
-let uploadedFile = null;
-
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => uploadedFile = e.target.files[0]);
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('hover'); });
-dropZone.addEventListener('dragleave', e => { dropZone.classList.remove('hover'); });
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('hover');
-  uploadedFile = e.dataTransfer.files[0];
-  alert(`File uploaded: ${uploadedFile.name}`);
-});
-
-document.getElementById('analyzeBtn').addEventListener('click', async () => {
-  if (!uploadedFile) return alert('Please upload a file first.');
-  const summaryContainer = document.getElementById('summaryContainer');
-  summaryContainer.innerHTML = 'Analyzing...';
-
-  if (uploadedFile.name.endsWith('.xlsx') || uploadedFile.name.endsWith('.xls')) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-      generateSummaryTable(jsonData);
-    };
-    reader.readAsArrayBuffer(uploadedFile);
-  } else if (uploadedFile.name.endsWith('.pdf')) {
-    const pdfData = await uploadedFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-    let fullText = '';
-    for(let i=1; i<=pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map(t => t.str).join(' ') + '\n';
-    }
-    simulatePDFAnalysis(fullText);
+  function showModule(moduleId) {
+    modules.forEach(mod => mod.classList.add('hidden'));
+    document.getElementById(moduleId).classList.remove('hidden');
   }
-});
 
-function generateSummaryTable(data) {
-  const summaryContainer = document.getElementById('summaryContainer');
-  summaryContainer.innerHTML = '';
+  let uploadedData = [];
 
-  const monthlyData = {};
-  data.slice(1).forEach(row => {
-    const month = row[1] || `Unknown`;
-    const debit = parseFloat((row[2] || 0).toString().replace(/,/g,'')) || 0;
-    const credit = parseFloat((row[3] || 0).toString().replace(/,/g,'')) || 0;
-    if (!monthlyData[month]) monthlyData[month] = { debit: 0, credit: 0 };
-    monthlyData[month].debit += debit;
-    monthlyData[month].credit += credit;
-  });
+  function processFiles() {
+    const files = document.getElementById('fileInput').files;
+    if (!files.length) return alert('Please select files first.');
 
-  const table = document.createElement('table');
-  const header = table.insertRow();
-  ['S/N','Month','Debit','Credit'].forEach(h => header.insertCell().textContent = h);
-
-  let grandDebit = 0, grandCredit = 0;
-  let sn = 1;
-  const sortedMonths = Object.keys(monthlyData).sort((a,b)=> new Date(a) - new Date(b)); // Optional sorting
-  sortedMonths.forEach(month => {
-    const r = table.insertRow();
-    const { debit, credit } = monthlyData[month];
-    grandDebit += debit;
-    grandCredit += credit;
-    [sn++, month, debit.toLocaleString(), credit.toLocaleString()].forEach(v => r.insertCell().textContent = v);
-  });
-
-  // Total row
-  const totalRow = table.insertRow();
-  totalRow.classList.add('grand-total');
-  ['','Total', grandDebit.toLocaleString(), grandCredit.toLocaleString()].forEach(v => totalRow.insertCell().textContent = v);
-
-  // Average row
-  const avgRow = table.insertRow();
-  avgRow.classList.add('average');
-  const monthCount = Object.keys(monthlyData).length;
-  ['','Average', (grandDebit/monthCount).toLocaleString(), (grandCredit/monthCount).toLocaleString()].forEach(v => avgRow.insertCell().textContent = v);
-
-  // Header for bank & school (optional)
-  const titleDiv = document.createElement('div');
-  titleDiv.innerHTML = `<h2>CASH FLOW SUMMARY - CRDB BANK</h2><h3>PREMIER GIRLS SEC SCHOOL 2024-2025</h3>`;
-  summaryContainer.appendChild(titleDiv);
-  summaryContainer.appendChild(table);
-}
-
-function simulatePDFAnalysis(text) {
-  // Basic PDF text simulation: detect lines with Month + Debit + Credit
-  const lines = text.split('\n').filter(l => l.trim());
-  const data = [['S/N','Month','Debit','Credit']];
-  lines.forEach((line, idx) => {
-    const parts = line.match(/([A-Za-z]{3,}-\d{2,4})\s?([\d,\.]+)?\s?([\d,\.]+)?/);
-    if (parts) {
-      const month = parts[1] || `Month ${idx+1}`;
-      const debit = parseFloat((parts[2] || 0).replace(/,/g,'')) || 0;
-      const credit = parseFloat((parts[3] || 0).replace(/,/g,'')) || 0;
-      data.push([idx+1, month, debit, credit]);
+    uploadedData = [];
+    for (let file of files) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type:'array'});
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const sheetData = XLSX.utils.sheet_to_json(firstSheet, {header:1});
+        uploadedData.push(...sheetData);
+      }
+      reader.readAsArrayBuffer(file);
     }
-  });
-  generateSummaryTable(data);
-}
+    alert('Files uploaded successfully!');
+    showModule('moduleB');
+  }
+
+  function generateSummary() {
+    if (!uploadedData.length) return alert('No data uploaded.');
+    
+    // Simulated parsing: assumes first row header and format [S/N, Month, Debit, Credit]
+    const rows = uploadedData.slice(1).map((row,i) => ({
+      sn: i+1,
+      month: row[0] || `Month-${i+1}`,
+      debit: parseFloat(row[1] || 0),
+      credit: parseFloat(row[2] || 0)
+    }));
+
+    // Calculate totals
+    const totalDebit = rows.reduce((sum,r)=> sum + r.debit,0);
+    const totalCredit = rows.reduce((sum,r)=> sum + r.credit,0);
+    const avgDebit = (totalDebit / rows.length).toFixed(2);
+    const avgCredit = (totalCredit / rows.length).toFixed(2);
+
+    // Populate report table
+    const tbody = document.getElementById('reportTable');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="border px-4 py-2">${r.sn}</td>
+                      <td class="border px-4 py-2">${r.month}</td>
+                      <td class="border px-4 py-2">${r.debit.toLocaleString()}</td>
+                      <td class="border px-4 py-2">${r.credit.toLocaleString()}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('totalDebit').textContent = totalDebit.toLocaleString();
+    document.getElementById('totalCredit').textContent = totalCredit.toLocaleString();
+    document.getElementById('avgDebit').textContent = avgDebit.toLocaleString();
+    document.getElementById('avgCredit').textContent = avgCredit.toLocaleString();
+
+    showModule('moduleC');
+  }
 </script>
 </body>
 </html>
