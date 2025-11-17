@@ -5,86 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bank Statement Analyzer Dashboard</title>
 <style>
-/* Reset */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { display: flex; min-height: 100vh; background: #f4f6f8; }
 
-/* Sidebar */
-.sidebar {
-  width: 250px;
-  background: #1e1e2f;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-}
+.sidebar { width: 250px; background: #1e1e2f; color: #fff; display: flex; flex-direction: column; padding: 20px; }
 .sidebar h2 { margin-bottom: 40px; font-size: 24px; }
-.nav-link {
-  padding: 15px 20px;
-  margin-bottom: 10px;
-  background: #2c2c3e;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
+.nav-link { padding: 15px 20px; margin-bottom: 10px; background: #2c2c3e; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
 .nav-link:hover, .nav-link.active { background: #4b4b6b; }
 
-/* Main content */
-.main {
-  flex: 1;
-  padding: 30px;
-  overflow-y: auto;
-}
-.module {
-  display: none;
-  background: #fff;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
+.main { flex: 1; padding: 30px; overflow-y: auto; }
+.module { display: none; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .module.active { display: block; }
 
-/* Drag & drop */
-#drop-zone {
-  border: 2px dashed #ccc;
-  border-radius: 12px;
-  padding: 40px;
-  text-align: center;
-  color: #666;
-  margin-bottom: 20px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
+#drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 40px; text-align: center; color: #666; margin-bottom: 20px; cursor: pointer; transition: background 0.3s; }
 #drop-zone.hover { background: #f0f0f0; }
 
-/* Table */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-table th, table td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: center;
-}
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+table th, table td { border: 1px solid #ddd; padding: 12px; text-align: center; }
 table th { background: #f4f6f8; }
 .grand-total { font-weight: bold; background: #e0e0e0; }
 
-/* Button */
-button {
-  padding: 12px 20px;
-  border: none;
-  background: #1e1e2f;
-  color: #fff;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: background 0.3s;
-}
+button { padding: 12px 20px; border: none; background: #1e1e2f; color: #fff; border-radius: 8px; cursor: pointer; margin-top: 10px; transition: background 0.3s; }
 button:hover { background: #4b4b6b; }
 
-/* Responsive */
 @media (max-width: 768px) {
   body { flex-direction: column; }
   .sidebar { width: 100%; flex-direction: row; overflow-x: auto; }
@@ -103,24 +46,19 @@ button:hover { background: #4b4b6b; }
 </div>
 
 <div class="main">
-  <!-- OCR Upload -->
   <div id="moduleA" class="module active">
     <h1>OCR Upload</h1>
     <div id="drop-zone">Drag & Drop Excel or PDF here, or click to select file</div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf" style="display:none" />
     <button id="analyzeBtn">Analyze Bank Statement</button>
-
-    <!-- Summary Table -->
     <div id="summaryContainer"></div>
   </div>
 
-  <!-- AI Arrears -->
   <div id="moduleB" class="module">
     <h1>AI Arrears Interpretation</h1>
     <p>Analysis of arrears will appear here.</p>
   </div>
 
-  <!-- Report Generator -->
   <div id="moduleC" class="module">
     <h1>Report Generator</h1>
     <p>Reports generated from analyzed data.</p>
@@ -128,6 +66,7 @@ button:hover { background: #4b4b6b; }
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
 <script>
 const links = document.querySelectorAll('.nav-link');
 const modules = document.querySelectorAll('.module');
@@ -140,7 +79,6 @@ links.forEach(link => {
   });
 });
 
-// Drag & drop logic
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('fileInput');
 let uploadedFile = null;
@@ -156,57 +94,83 @@ dropZone.addEventListener('drop', e => {
   alert(`File uploaded: ${uploadedFile.name}`);
 });
 
-// Analyze button
-document.getElementById('analyzeBtn').addEventListener('click', () => {
+document.getElementById('analyzeBtn').addEventListener('click', async () => {
   if (!uploadedFile) return alert('Please upload a file first.');
+  const summaryContainer = document.getElementById('summaryContainer');
+  summaryContainer.innerHTML = 'Analyzing...';
 
-  // Simulated AI Analysis
-  // For Excel: parse basic table
   if (uploadedFile.name.endsWith('.xlsx') || uploadedFile.name.endsWith('.xls')) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
       generateSummaryTable(jsonData);
     };
     reader.readAsArrayBuffer(uploadedFile);
   } else if (uploadedFile.name.endsWith('.pdf')) {
-    alert('PDF parsing is not implemented yet. Please use Excel.');
+    const pdfData = await uploadedFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    let fullText = '';
+    for(let i=1; i<=pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      fullText += textContent.items.map(t => t.str).join(' ') + '\n';
+    }
+    simulatePDFAnalysis(fullText);
   }
 });
 
-// Generate summary table (simulation)
 function generateSummaryTable(data) {
   const summaryContainer = document.getElementById('summaryContainer');
   summaryContainer.innerHTML = '';
 
-  // Simulate processing: group by months and sum Credit/Debit
-  // Assume data[0] = header, data[i] = [S/N, Month, Debit, Credit]
+  const monthlyData = {};
+  data.slice(1).forEach(row => {
+    const month = row[1] || `Month Unknown`;
+    const debit = parseFloat(row[2]) || 0;
+    const credit = parseFloat(row[3]) || 0;
+    if (!monthlyData[month]) monthlyData[month] = { debit: 0, credit: 0 };
+    monthlyData[month].debit += debit;
+    monthlyData[month].credit += credit;
+  });
+
   const table = document.createElement('table');
   const header = table.insertRow();
   ['S/N','Month','Debit','Credit'].forEach(h => header.insertCell().textContent = h);
 
   let grandDebit = 0, grandCredit = 0;
-  data.slice(1).forEach((row, i) => {
+  let sn = 1;
+  for (const month in monthlyData) {
     const r = table.insertRow();
-    const sn = i+1;
-    const month = row[1] || `Month ${sn}`;
-    const debit = parseFloat(row[2]) || Math.floor(Math.random()*1000000);
-    const credit = parseFloat(row[3]) || Math.floor(Math.random()*1000000);
+    const { debit, credit } = monthlyData[month];
     grandDebit += debit;
     grandCredit += credit;
-    [sn, month, debit.toLocaleString(), credit.toLocaleString()].forEach(v => r.insertCell().textContent = v);
-  });
+    [sn++, month, debit.toLocaleString(), credit.toLocaleString()].forEach(v => r.insertCell().textContent = v);
+  }
 
-  // Add grand total
   const totalRow = table.insertRow();
   totalRow.classList.add('grand-total');
   ['','Grand Total', grandDebit.toLocaleString(), grandCredit.toLocaleString()].forEach(v => totalRow.insertCell().textContent = v);
 
   summaryContainer.appendChild(table);
+}
+
+function simulatePDFAnalysis(text) {
+  // Very basic PDF text simulation: find lines with Month + numbers
+  const lines = text.split('\n').filter(l => l.trim());
+  const data = [['S/N','Month','Debit','Credit']];
+  lines.forEach((line, idx) => {
+    const parts = line.match(/([A-Za-z]{3,}\s?\d{0,2})\s?([\d,\.]+)?\s?([\d,\.]+)?/);
+    if (parts) {
+      const month = parts[1] || `Month ${idx+1}`;
+      const debit = parseFloat((parts[2] || 0).replace(/,/g,'')) || 0;
+      const credit = parseFloat((parts[3] || 0).replace(/,/g,'')) || 0;
+      data.push([idx+1, month, debit, credit]);
+    }
+  });
+  generateSummaryTable(data);
 }
 </script>
 </body>
