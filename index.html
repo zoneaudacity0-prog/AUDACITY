@@ -1,908 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Audacity Zone — Dashboard (Statement Analyzer)</title>
-  <meta name="description" content="Audacity Zone — upload bank statements, OCR ledgers, compute monthly debit & credit, detect arrears, export Excel. Prototype." />
-
-  <!-- Tailwind CDN (Option B) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/tesseract.min.js"></script>
-
-  <style>
-    /* small extra utilities */
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(2,6,23,0.06); }
-    /* hide pdf canvas */
-    #pdfCanvas { display:none; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-gray-100 font-sans">
 
-  <div class="min-h-screen flex">
-
-    <!-- SIDEBAR (desktop) -->
-    <aside id="sidebar" class="hidden md:flex md:flex-col w-64 bg-white p-4 gap-4 border-r">
-      <div class="flex items-center gap-2">
-        <div class="text-2xl font-bold">Audacity Zone</div>
-      </div>
-      <nav class="mt-4 flex flex-col gap-2">
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="home">Home</button>
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="analyzer">Statement Analyzer</button>
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="ocr">A — OCR</button>
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="ai">B — Interpretation</button>
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="report">C — Report</button>
-        <button class="nav-btn text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="history">History</button>
+  <!-- Sidebar -->
+  <div class="flex">
+    <aside class="w-64 bg-white h-screen shadow-md hidden md:block">
+      <div class="p-6 text-xl font-bold border-b">Dashboard</div>
+      <nav class="p-6">
+        <ul>
+          <li class="mb-4"><a href="#" class="flex items-center text-gray-700 hover:text-blue-500"><i data-feather="home" class="mr-2"></i>Home</a></li>
+          <li class="mb-4"><a href="#" class="flex items-center text-gray-700 hover:text-blue-500"><i data-feather="bar-chart-2" class="mr-2"></i>Analytics</a></li>
+          <li class="mb-4"><a href="#" class="flex items-center text-gray-700 hover:text-blue-500"><i data-feather="users" class="mr-2"></i>Clients</a></li>
+          <li class="mb-4"><a href="#" class="flex items-center text-gray-700 hover:text-blue-500"><i data-feather="settings" class="mr-2"></i>Settings</a></li>
+        </ul>
       </nav>
-
-      <div class="mt-auto text-xs text-slate-500">Prototype — Client-only. Add server/auth for production.</div>
     </aside>
 
-    <!-- MAIN -->
-    <div class="flex-1">
-
-      <!-- Top nav (mobile) -->
-      <header class="md:hidden flex items-center justify-between p-3 bg-white border-b">
-        <div class="flex items-center gap-2">
-          <button id="mobileMenuBtn" class="p-2 rounded bg-slate-100">☰</button>
-          <div class="font-semibold">Audacity Zone</div>
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top navigation -->
+      <header class="bg-white shadow-md p-4 flex justify-between items-center">
+        <div class="text-2xl font-semibold">Dashboard</div>
+        <div>
+          <input type="text" placeholder="Search..." class="border rounded px-3 py-1 w-48">
         </div>
-        <div class="text-sm text-slate-500">Prototype</div>
       </header>
 
-      <!-- mobile menu drawer -->
-      <div id="mobileMenu" class="fixed inset-0 z-40 bg-black/30 hidden">
-        <div class="bg-white w-64 h-full p-4">
-          <div class="flex justify-between items-center"><div class="font-bold">Menu</div><button id="mobileMenuClose">✕</button></div>
-          <nav class="mt-4 flex flex-col gap-2">
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="home">Home</button>
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="analyzer">Statement Analyzer</button>
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="ocr">A — OCR</button>
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="ai">B — Interpretation</button>
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="report">C — Report</button>
-            <button class="nav-btn-mobile text-left px-3 py-2 rounded hover:bg-slate-100" data-tab="history">History</button>
-          </nav>
+      <!-- Dashboard cards -->
+      <main class="p-6 flex-1 overflow-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div class="bg-white p-6 rounded shadow hover:shadow-lg transition">
+            <div class="text-gray-500">Total Users</div>
+            <div class="text-2xl font-bold">1,245</div>
+          </div>
+          <div class="bg-white p-6 rounded shadow hover:shadow-lg transition">
+            <div class="text-gray-500">Revenue</div>
+            <div class="text-2xl font-bold">$32,400</div>
+          </div>
+          <div class="bg-white p-6 rounded shadow hover:shadow-lg transition">
+            <div class="text-gray-500">New Orders</div>
+            <div class="text-2xl font-bold">123</div>
+          </div>
+          <div class="bg-white p-6 rounded shadow hover:shadow-lg transition">
+            <div class="text-gray-500">Pending Tickets</div>
+            <div class="text-2xl font-bold">7</div>
+          </div>
         </div>
-      </div>
 
-      <!-- Content area -->
-      <main class="p-6 space-y-6">
-
-        <!-- HOME -->
-        <section id="home" class="card p-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h1 class="text-2xl font-bold">Dashboard</h1>
-              <p class="text-sm text-slate-600 mt-1">Upload bank statements, get monthly debit/credit summaries, detect arrears and export Excel reports.</p>
-            </div>
-            <div class="hidden md:flex gap-2 items-center">
-              <div class="px-3 py-1 rounded bg-amber-50 text-amber-700">Prototype</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ANALYZER -->
-        <section id="analyzer" class="card p-6">
-          <div class="grid md:grid-cols-3 gap-6">
-            <div class="md:col-span-1">
-              <h2 class="text-lg font-semibold">New Analysis</h2>
-              <p class="text-sm text-slate-500">Provide a reference, upload CSV/XLSX/PDF/Image (PDF/Image use OCR). Then click Analyze.</p>
-
-              <label class="block text-sm mt-4">Statement name / Ref / ID</label>
-              <input id="stmtRef" class="mt-1 block w-full border rounded p-2" placeholder="e.g. PREMIER GIRLS SEC SCHOOL 2024-2025">
-
-              <label class="block text-sm mt-3">Upload statement</label>
-              <div id="dropArea" class="mt-2 p-4 rounded border-2 border-dashed border-slate-200 bg-slate-50 text-center cursor-pointer">
-                Click or drop files here<br><span class="text-xs text-slate-500">CSV/XLSX recommended for accurate parsing. PDF/Image will be OCR’d (client-side).</span>
-              </div>
-              <input id="fileInput" type="file" accept=".csv,.xlsx,.xls,.pdf,image/*" multiple class="hidden">
-
-              <div class="flex items-center gap-2 mt-4">
-                <button id="analyzeBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Analyze</button>
-                <button id="clearBtn" class="bg-gray-100 px-4 py-2 rounded">Clear</button>
-                <div class="ml-auto text-sm text-slate-600">Files: <span id="fileCount">0</span></div>
-              </div>
-
-              <label class="inline-flex items-center gap-2 mt-3 text-sm">
-                <input id="storeHistory" type="checkbox" checked>
-                <span class="text-sm text-slate-600">Store analysis history (local)</span>
-              </label>
-
-              <div class="mt-4 text-xs text-slate-500">
-                <strong>Note:</strong> This is a demo. For production use server-side processing, authentication and encryption.
-              </div>
-            </div>
-
-            <div class="md:col-span-2">
-              <div id="noResults" class="p-8 text-center text-slate-500">
-                No analysis performed yet.
-              </div>
-
-              <div id="resultsCard" class="hidden">
-                <div class="flex items-start justify-between">
-                  <div>
-                    <h3 id="resultTitle" class="text-xl font-semibold">Analysis Results</h3>
-                    <div id="resultMeta" class="text-sm text-slate-500 mt-1">Ref: — • Files: —</div>
-                  </div>
-
-                  <div class="flex gap-2">
-                    <button id="downloadSummary" class="bg-amber-100 px-3 py-2 rounded">Download Summary (.xlsx)</button>
-                    <button id="downloadDetailed" class="bg-green-600 text-white px-3 py-2 rounded">Download Detailed (.xlsx)</button>
-                  </div>
-                </div>
-
-                <!-- Summary table -->
-                <div class="mt-4 overflow-auto">
-                  <div id="cashflowHeader" class="mb-2 text-sm text-slate-600"></div>
-                  <div id="summaryTableWrap" class="overflow-auto"></div>
-                </div>
-
-                <!-- Charts & insights -->
-                <div class="mt-4 grid md:grid-cols-2 gap-4">
-                  <div class="p-4 card-shadow rounded">
-                    <canvas id="monthlyChart" style="max-height:320px;"></canvas>
-                  </div>
-                  <div class="p-4 card-shadow rounded">
-                    <h4 class="font-medium">Quick Insights</h4>
-                    <div id="quickInsights" class="mt-3 text-sm text-slate-700"></div>
-                  </div>
-                </div>
-
-                <div class="mt-4">
-                  <h4 class="font-medium">Comparison (if multiple files)</h4>
-                  <div id="compareWrap" class="mt-2 text-sm text-slate-600">Upload multiple files and analyze to compare side-by-side.</div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </section>
-
-        <!-- OCR Module A -->
-        <section id="ocr" class="card p-6 hidden">
-          <div class="grid md:grid-cols-3 gap-4">
-            <div class="md:col-span-1">
-              <h3 class="font-semibold">A — OCR Module</h3>
-              <p class="text-sm text-slate-500 mt-1">Upload ledger PDF or image to extract text via Tesseract.</p>
-
-              <div id="ocrDrop" class="mt-3 p-4 border-2 border-dashed rounded text-center cursor-pointer bg-slate-50">
-                Click or drop PDF / image
-              </div>
-              <input id="ocrInput" type="file" accept=".pdf,image/*" class="hidden">
-              <div class="mt-3 flex gap-2">
-                <button id="runOCRBtn" class="bg-blue-600 text-white px-3 py-2 rounded">Run OCR</button>
-                <button id="clearOCRBtn" class="bg-gray-100 px-3 py-2 rounded">Clear</button>
-              </div>
-            </div>
-
-            <div class="md:col-span-2">
-              <h4 class="font-medium">OCR Text</h4>
-              <pre id="ocrText" class="mono p-3 bg-slate-50 rounded mt-2" style="height:220px; overflow:auto;"></pre>
-              <div class="mt-2 text-xs text-slate-500">OCR runs locally; large files can take significant time.</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- AI Module B -->
-        <section id="ai" class="card p-6 hidden">
-          <div class="grid md:grid-cols-3 gap-4">
-            <div>
-              <h3 class="font-semibold">B — AI Interpretation</h3>
-              <p class="text-sm text-slate-500 mt-1">Heuristics to extract arrears, principal in arrears, days in arrears and default interest estimate.</p>
-
-              <label class="block text-sm mt-3">Choose stored analysis</label>
-              <select id="analysisSelect" class="mt-2 w-full border rounded p-2"></select>
-
-              <div class="mt-4 flex gap-2">
-                <button id="runInterpretBtn" class="bg-green-600 text-white px-3 py-2 rounded">Run Interpretation</button>
-                <button id="clearInterpretBtn" class="bg-gray-100 px-3 py-2 rounded">Clear</button>
-              </div>
-            </div>
-
-            <div class="md:col-span-2">
-              <h4 class="font-medium">Interpretation Output</h4>
-              <pre id="interpretOutput" class="p-3 bg-slate-50 rounded mt-2" style="min-height:160px; white-space:pre-wrap;"></pre>
-            </div>
-          </div>
-        </section>
-
-        <!-- Report Module C -->
-        <section id="report" class="card p-6 hidden">
-          <h3 class="font-semibold">C — Report Generator</h3>
-          <p class="text-sm text-slate-500 mt-1">Export generated summary & detailed workbooks.</p>
-          <div class="mt-3 flex gap-2">
-            <button id="downloadSummaryBtn" class="bg-amber-100 px-3 py-2 rounded">Download Summary (.xlsx)</button>
-            <button id="downloadDetailedBtn" class="bg-green-600 text-white px-3 py-2 rounded">Download Detailed (.xlsx)</button>
-          </div>
-          <div id="reportNote" class="mt-3 text-sm text-slate-600">No report generated yet.</div>
-        </section>
-
-        <!-- History -->
-        <section id="history" class="card p-6 hidden">
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Analysis History</h3>
-            <div class="flex gap-2">
-              <button id="exportHistoryBtn" class="bg-amber-100 px-3 py-2 rounded">Export History (.xlsx)</button>
-              <button id="clearHistoryBtn" class="bg-gray-100 px-3 py-2 rounded">Clear History</button>
-            </div>
-          </div>
-          <div id="historyList" class="mt-4 text-sm text-slate-600">No saved analyses.</div>
-        </section>
-
+        <!-- Table -->
+        <div class="bg-white rounded shadow overflow-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap">1</td>
+                <td class="px-6 py-4 whitespace-nowrap">John Doe</td>
+                <td class="px-6 py-4 whitespace-nowrap">john@example.com</td>
+                <td class="px-6 py-4 whitespace-nowrap"><span class="text-green-500 font-semibold">Active</span></td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <button class="text-blue-500 hover:underline">Edit</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap">2</td>
+                <td class="px-6 py-4 whitespace-nowrap">Jane Smith</td>
+                <td class="px-6 py-4 whitespace-nowrap">jane@example.com</td>
+                <td class="px-6 py-4 whitespace-nowrap"><span class="text-red-500 font-semibold">Inactive</span></td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <button class="text-blue-500 hover:underline">Edit</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </main>
     </div>
   </div>
 
-  <!-- Hidden canvas for PDF/Images -->
-  <canvas id="pdfCanvas"></canvas>
-
   <script>
-  /* ====== Globals & Storage Keys ====== */
-  const LS_HISTORY = 'audacity_history_v3';
-
-  // UI elements
-  const navBtns = document.querySelectorAll('.nav-btn');
-  const mobileNavBtns = document.querySelectorAll('.nav-btn-mobile');
-  const mobileMenu = document.getElementById('mobileMenu');
-  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-  const mobileMenuClose = document.getElementById('mobileMenuClose');
-
-  const sections = {
-    home: document.getElementById('home'),
-    analyzer: document.getElementById('analyzer'),
-    ocr: document.getElementById('ocr'),
-    ai: document.getElementById('ai'),
-    report: document.getElementById('report'),
-    history: document.getElementById('history')
-  };
-
-  function showTab(tabKey){
-    Object.values(sections).forEach(s => s.classList.add('hidden'));
-    if (sections[tabKey]) sections[tabKey].classList.remove('hidden');
-    // small UI sync for mobile menu
-    if (!window.matchMedia('(min-width: 768px)').matches) {
-      mobileMenu.classList.add('hidden');
-    }
-  }
-
-  // Initial view
-  showTab('analyzer');
-
-  // hook sidebar buttons
-  navBtns.forEach(btn => btn.addEventListener('click', ()=> showTab(btn.dataset.tab)));
-  mobileNavBtns.forEach(btn => btn.addEventListener('click', ()=> showTab(btn.dataset.tab)));
-
-  // mobile menu toggles
-  mobileMenuBtn.addEventListener('click', ()=> mobileMenu.classList.remove('hidden'));
-  mobileMenuClose.addEventListener('click', ()=> mobileMenu.classList.add('hidden'));
-
-  // Analyzer elements
-  const dropArea = document.getElementById('dropArea');
-  const fileInput = document.getElementById('fileInput');
-  const fileCountEl = document.getElementById('fileCount');
-  const stmtRefInput = document.getElementById('stmtRef');
-  const analyzeBtn = document.getElementById('analyzeBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const storeHistoryCheckbox = document.getElementById('storeHistory');
-
-  // Results/visuals
-  const resultsCard = document.getElementById('resultsCard');
-  const noResults = document.getElementById('noResults');
-  const resultTitle = document.getElementById('resultTitle');
-  const resultMeta = document.getElementById('resultMeta');
-  const summaryTableWrap = document.getElementById('summaryTableWrap');
-  const cashflowHeader = document.getElementById('cashflowHeader');
-  const quickInsights = document.getElementById('quickInsights');
-  const compareWrap = document.getElementById('compareWrap');
-  const downloadSummary = document.getElementById('downloadSummary');
-  const downloadDetailed = document.getElementById('downloadDetailed');
-
-  // OCR elements
-  const ocrDrop = document.getElementById('ocrDrop');
-  const ocrInput = document.getElementById('ocrInput');
-  const runOCRBtn = document.getElementById('runOCRBtn');
-  const clearOCRBtn = document.getElementById('clearOCRBtn');
-  const ocrTextEl = document.getElementById('ocrText');
-
-  // AI elements
-  const analysisSelect = document.getElementById('analysisSelect');
-  const runInterpretBtn = document.getElementById('runInterpretBtn');
-  const clearInterpretBtn = document.getElementById('clearInterpretBtn');
-  const interpretOutput = document.getElementById('interpretOutput');
-
-  // Report & history
-  const downloadSummaryBtn = document.getElementById('downloadSummaryBtn');
-  const downloadDetailedBtn = document.getElementById('downloadDetailedBtn');
-  const historyList = document.getElementById('historyList');
-  const exportHistoryBtn = document.getElementById('exportHistoryBtn');
-  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-
-  // chart instance
-  let chartInstance = null;
-
-  // state
-  let uploadedFiles = [];
-  let analyses = []; // each entry: { ref, fileName, rows(normalized), monthly, totals, insights, raw }
-
-  /* ====== Drag & Drop / File selection ====== */
-  dropArea.addEventListener('click', ()=> fileInput.click());
-  dropArea.addEventListener('dragover', e=> { e.preventDefault(); dropArea.classList.add('opacity-80'); });
-  dropArea.addEventListener('dragleave', ()=> dropArea.classList.remove('opacity-80'));
-  dropArea.addEventListener('drop', e=> { e.preventDefault(); dropArea.classList.remove('opacity-80'); handleFiles(e.dataTransfer.files); });
-
-  fileInput.addEventListener('change', e => handleFiles(e.target.files));
-
-  function handleFiles(fileList){
-    for (let f of fileList) uploadedFiles.push(f);
-    fileCountEl.textContent = uploadedFiles.length;
-    dropArea.innerHTML = `<div class="text-sm text-slate-700">${uploadedFiles.map(x=>x.name).join(' • ')}</div>`;
-  }
-
-  clearBtn.addEventListener('click', ()=>{
-    uploadedFiles = [];
-    analyses = [];
-    fileCountEl.textContent = 0;
-    dropArea.innerHTML = `Click or drop files here<br><span class="text-xs text-slate-500">CSV/XLSX recommended. PDF/Image will be OCR’d (slow).</span>`;
-    resultsCard.classList.add('hidden');
-    noResults.style.display = 'block';
-    summaryTableWrap.innerHTML = '';
-    quickInsights.innerHTML = '';
-    compareWrap.innerText = 'Upload multiple files and analyze to compare side-by-side.';
-    cashflowHeader.innerText = '';
-  });
-
-  /* ====== Parsing helpers (CSV, Excel, PDF OCR, Image OCR) ====== */
-
-  // pdf.js worker
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.worker.min.js';
-  }
-
-  async function parseFileToRows(file){
-    const name = file.name.toLowerCase();
-    if (name.endsWith('.csv')) return parseCSVFile(file);
-    if (name.endsWith('.xlsx') || name.endsWith('.xls')) return parseExcelFile(file);
-    if (name.endsWith('.pdf')) return parsePdfWithOCR(file);
-    if (/\.(png|jpe?g|bmp|tiff)$/i.test(name)) return parseImageWithOCR(file);
-    throw new Error('Unsupported file type: ' + file.name);
-  }
-
-  function parseCSVFile(file){
-    return new Promise((resolve, reject)=>{
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: h => h.trim(),
-        complete: (res) => resolve({ rows: res.data, meta: res.meta }),
-        error: (err) => reject(err)
-      });
-    });
-  }
-
-  function parseExcelFile(file){
-    return new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = function(e){
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-          resolve({ rows, meta: { sheetName: workbook.SheetNames[0] }});
-        } catch (err) { reject(err); }
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  // PDF rendering + OCR
-  async function parsePdfWithOCR(file){
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const canvas = document.getElementById('pdfCanvas');
-    let combinedText = '';
-    for (let p=1; p<=pdf.numPages; p++){
-      const page = await pdf.getPage(p);
-      const viewport = page.getViewport({ scale: 2.0 });
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      // OCR canvas
-      const pageText = await ocrCanvas(canvas);
-      combinedText += '\n' + pageText;
-    }
-    const rows = extractRowsFromText(combinedText);
-    return { rows, ocrText: combinedText, meta: { pages: pdf.numPages } };
-  }
-
-  // Image OCR
-  async function parseImageWithOCR(file){
-    const buffer = await file.arrayBuffer();
-    const blob = new Blob([buffer]);
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = url;
-    await new Promise(r => img.onload = r);
-    const canvas = document.getElementById('pdfCanvas');
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0);
-    const text = await ocrCanvas(canvas);
-    const rows = extractRowsFromText(text);
-    return { rows, ocrText: text };
-  }
-
-  // OCR with Tesseract on canvas
-  async function ocrCanvas(canvas){
-    if (!window.Tesseract) {
-      console.warn('Tesseract not available');
-      return '';
-    }
-    const worker = Tesseract.createWorker({ logger: m => {/*progress*/} });
-    await worker.load();
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
-    const { data: { text } } = await worker.recognize(canvas);
-    await worker.terminate();
-    return text || '';
-  }
-
-  // heuristic extraction from raw text (OCR)
-  function extractRowsFromText(text){
-    const lines = String(text).split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    const rows = [];
-    const dateRegex = /\b(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}[\/\-.]\d{2}[\/\-.]\d{2})\b/;
-    const amountRegex = /[+-]?\d{1,3}(?:[,\d{3}]*)(?:\.\d+)?/g;
-    for (let line of lines) {
-      if (!dateRegex.test(line)) continue;
-      const dateMatch = line.match(dateRegex)[0];
-      const desc = line.replace(dateMatch, '').replace(/[^ -~]/g,' ').trim();
-      const amounts = (line.match(amountRegex) || []).map(a=>a.replace(/,/g,''));
-      let Debit = 0, Credit = 0;
-      if (amounts.length === 1) {
-        if (/\bCR\b|\bcredit\b/i.test(line)) Credit = parseFloat(amounts[0]) || 0;
-        else Debit = parseFloat(amounts[0]) || 0;
-      } else if (amounts.length >= 2) {
-        Debit = parseFloat(amounts[amounts.length-2]) || 0;
-        Credit = parseFloat(amounts[amounts.length-1]) || 0;
-      }
-      rows.push({ Date: dateMatch, Description: desc, Debit, Credit });
-    }
-    return rows;
-  }
-
-  /* ====== Normalize rows and compute monthly summaries ====== */
-  function normalizeRows(rows){
-    const normalized = [];
-    for (let r of rows){
-      const dateRaw = r.Date || r.date || r['Transaction Date'] || r['Value Date'] || '';
-      const parsedDate = parseFlexibleDate(dateRaw);
-      const isoDate = parsedDate ? parsedDate.toISOString().slice(0,10) : String(dateRaw || '');
-      const desc = r.Description || r.description || r.Narration || r.Remarks || r.Details || '';
-      const debit = parseAmount(r.Debit || r.DR || r.debit || r.DebitAmount || 0);
-      const credit = parseAmount(r.Credit || r.CR || r.credit || r.CreditAmount || 0);
-      normalized.push({ Date: isoDate, Description: String(desc).trim(), Debit: debit, Credit: credit });
-    }
-    return normalized;
-  }
-
-  function parseAmount(v){
-    if (v === undefined || v === null) return 0;
-    const s = String(v).replace(/[^0-9.\-]/g,'').trim();
-    if (!s) return 0;
-    const n = parseFloat(s);
-    return isNaN(n) ? 0 : n;
-  }
-
-  function parseFlexibleDate(val){
-    if (!val) return null;
-    let s = String(val).trim().replace(/\s+/g,' ');
-    // try Date
-    let d = new Date(s);
-    if (!isNaN(d)) return d;
-    // dd/mm/yyyy or similar
-    let m = s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-    if (m) {
-      const dd = parseInt(m[1],10), mm = parseInt(m[2],10)-1, yy = parseInt(m[3],10);
-      const year = yy < 100 ? 2000 + yy : yy;
-      return new Date(year, mm, dd);
-    }
-    // yyyy-mm-dd
-    m = s.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
-    if (m) return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
-    return null;
-  }
-
-  function computeMonthlySummary(rows){
-    const monthly = {}; // YYYY-MM => { debit, credit, count }
-    rows.forEach(r => {
-      const d = parseFlexibleDate(r.Date);
-      if (!d) return;
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      if (!monthly[key]) monthly[key] = { debit: 0, credit: 0, count: 0 };
-      monthly[key].debit += Number(r.Debit || 0);
-      monthly[key].credit += Number(r.Credit || 0);
-      monthly[key].count += 1;
-    });
-    return monthly;
-  }
-
-  function computeTotals(monthly){
-    let totalDebit = 0, totalCredit = 0, months = 0;
-    for (let m in monthly){ totalDebit += monthly[m].debit; totalCredit += monthly[m].credit; months++; }
-    const avgDebit = months ? totalDebit / months : 0;
-    const avgCredit = months ? totalCredit / months : 0;
-    return { totalDebit, totalCredit, avgDebit, avgCredit, months };
-  }
-
-  /* ====== Interpretation heuristics (B) ====== */
-  function interpretLedger(rows, monthly, totals){
-    const loanKeywords = /loan|advance|disburse|repay|repayment|principal|arrear|overdue|default|due/i;
-    const flaggedRows = rows.filter(r => loanKeywords.test(r.Description));
-    let principalArrears = 0;
-    flaggedRows.forEach(r => {
-      if (/\b(principal|arrear|overdue|due)\b/i.test(r.Description)) {
-        principalArrears += Math.max(Number(r.Debit||0), Number(r.Credit||0));
-      }
-    });
-    const dates = flaggedRows.map(r => parseFlexibleDate(r.Date)).filter(Boolean);
-    let daysInArrears = 0;
-    if (dates.length) {
-      const latest = dates.reduce((a,b)=> a>b ? a : b);
-      daysInArrears = Math.round((Date.now() - latest.getTime())/(1000*60*60*24));
-    }
-    const rate = 0.10;
-    const defaultInterestEstimate = principalArrears * rate * (daysInArrears/365);
-
-    // loan hint heuristic
-    let loanHint = 'No clear loan pattern detected.';
-    const maxCredit = rows.reduce((m,r)=> (r.Credit>m.val? {val:r.Credit,row:r}:m), {val:0,row:null});
-    if (maxCredit.val > totals.totalCredit * 0.4 && maxCredit.val > 500000) {
-      loanHint = `Large credit found (${formatMoney(maxCredit.val)}). Could be a loan disbursement.`;
-    } else if (flaggedRows.length) {
-      loanHint = `Keyword matches found in ${flaggedRows.length} rows. Example: "${(flaggedRows[0].Description||'').slice(0,80)}"`;
-    } else {
-      // repeated debit pattern
-      const debitCounts = {};
-      rows.forEach(r => { if (r.Debit>0) debitCounts[r.Debit] = (debitCounts[r.Debit]||0)+1; });
-      const frequent = Object.entries(debitCounts).sort((a,b)=>b[1]-a[1])[0];
-      if (frequent && frequent[1] >= 3) {
-        loanHint = `Repeated debit of ${formatMoney(Number(frequent[0]))} occurs ${frequent[1]} times — may indicate repayment schedule.`;
-      }
-    }
-
-    // flagged months
-    const flags = [];
-    for (let m in monthly) {
-      const net = monthly[m].credit - monthly[m].debit;
-      if (Math.abs(net) > Math.max(1000000, monthly[m].credit*0.6, monthly[m].debit*0.6)) {
-        flags.push({ month: m, net, debit: monthly[m].debit, credit: monthly[m].credit });
-      }
-    }
-
-    return { principalArrears, daysInArrears, defaultInterestEstimate, loanHint, flags, flaggedRows };
-  }
-
-  /* ====== Rendering results & formatting ====== */
-  function formatMoney(n){
-    return (Number(n)||0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  }
-
-  function monthLabelFromKey(key){
-    // key 'YYYY-MM' -> 'Mon-YY' like 'Sep-25'
-    const parts = key.split('-');
-    const y = parts[0], m = Number(parts[1]);
-    const date = new Date(y, m-1, 1);
-    return date.toLocaleString(undefined, { month: 'short' }) + '-' + String(y).slice(2);
-  }
-
-  function renderResults(ref, parsedStatements){
-    if (!parsedStatements.length) return;
-    noResults.style.display = 'none';
-    resultsCard.classList.remove('hidden');
-
-    resultTitle.textContent = `Analysis — ${ref}`;
-    resultMeta.textContent = `Ref: ${ref} • Files: ${parsedStatements.map(s=>s.fileName).join(', ')}`;
-
-    // merged monthly
-    const merged = {};
-    parsedStatements.forEach(s => {
-      for (let k in s.monthly) {
-        if (!merged[k]) merged[k] = { debit:0, credit:0 };
-        merged[k].debit += s.monthly[k].debit;
-        merged[k].credit += s.monthly[k].credit;
-      }
-    });
-    const monthsSorted = Object.keys(merged).sort().reverse(); // show newest top like your sample (Sep-25, Aug-25,...)
-    // if you want chronological earliest->latest, use .sort()
-
-    // Build table identical to sample structure
-    let html = '<table class="w-full text-sm table-auto border-collapse"><thead><tr class="text-left bg-slate-100"><th class="p-2 w-12">S/N</th><th class="p-2">Month</th><th class="p-2 text-right">Debit</th><th class="p-2 text-right">Credit</th></tr></thead><tbody>';
-    let idx = 1;
-    let totalDebit = 0, totalCredit = 0;
-    for (let k of monthsSorted) {
-      const d = merged[k].debit || 0;
-      const c = merged[k].credit || 0;
-      totalDebit += d; totalCredit += c;
-      html += `<tr><td class="p-2">${idx}</td><td class="p-2">${monthLabelFromKey(k)}</td><td class="p-2 text-right">${formatMoney(d)}</td><td class="p-2 text-right">${formatMoney(c)}</td></tr>`;
-      idx++;
-    }
-    // Totals & Average
-    const monthsCount = monthsSorted.length || 1;
-    const avgDebit = totalDebit / monthsCount;
-    const avgCredit = totalCredit / monthsCount;
-
-    html += `<tr class="font-semibold bg-slate-50"><td class="p-2"></td><td class="p-2">Total</td><td class="p-2 text-right">${formatMoney(totalDebit)}</td><td class="p-2 text-right">${formatMoney(totalCredit)}</td></tr>`;
-    html += `<tr class="font-semibold bg-slate-50"><td class="p-2"></td><td class="p-2">Average</td><td class="p-2 text-right">${Number(avgDebit).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td><td class="p-2 text-right">${Number(avgCredit).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td></tr>`;
-
-    html += '</tbody></table>';
-    summaryTableWrap.innerHTML = html;
-
-    // header area like: CASH FLOW SUMMARY - CRDB BANK / PREMIER GIRLS SEC SCHOOL 2024-2025
-    cashflowHeader.innerHTML = `<div class="text-sm font-medium">CASH FLOW SUMMARY - ${ (stmtRefInput.value || '').toUpperCase() || 'STATEMENT' }</div>`;
-
-    // Chart
-    const labels = monthsSorted.map(k => monthLabelFromKey(k)).reverse(); // chronological oldest->newest left->right
-    const debitData = monthsSorted.map(k => merged[k].debit || 0).reverse();
-    const creditData = monthsSorted.map(k => merged[k].credit || 0).reverse();
-    const ctx = document.getElementById('monthlyChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-    chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Debit', data: debitData, backgroundColor: 'rgba(59,130,246,0.25)', borderColor: 'rgba(59,130,246,0.9)', borderWidth: 1 },
-          { label: 'Credit', data: creditData, backgroundColor: 'rgba(16,185,129,0.25)', borderColor: 'rgba(16,185,129,0.9)', borderWidth: 1 }
-        ]
-      },
-      options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
-    });
-
-    // Quick insights
-    let insightsHtml = '';
-    parsedStatements.forEach(s=>{
-      insightsHtml += `<div class="mb-3"><strong>${s.fileName}</strong><div class="text-sm text-slate-600 mt-1">Total Debit: ${formatMoney(s.totals.totalDebit)} • Total Credit: ${formatMoney(s.totals.totalCredit)}</div>`;
-      insightsHtml += `<div class="mt-2 text-sm">${s.insights.loanHint}</div>`;
-      if (s.insights.flags && s.insights.flags.length) {
-        insightsHtml += `<div class="text-xs text-slate-500 mt-2"><strong>Flagged months:</strong> ${s.insights.flags.map(f=>`${monthLabelFromKey(f.month)} (net ${formatMoney(f.net)})`).join('; ')}</div>`;
-      }
-      insightsHtml += `</div>`;
-    });
-    quickInsights.innerHTML = insightsHtml;
-
-    // Comparison
-    if (parsedStatements.length > 1) {
-      let comp = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">File</th><th class="p-2 text-right">Total Debit</th><th class="p-2 text-right">Total Credit</th><th class="p-2 text-right">Net</th></tr></thead><tbody>';
-      parsedStatements.forEach(s => {
-        comp += `<tr><td class="p-2">${s.fileName}</td><td class="p-2 text-right">${formatMoney(s.totals.totalDebit)}</td><td class="p-2 text-right">${formatMoney(s.totals.totalCredit)}</td><td class="p-2 text-right">${formatMoney(s.totals.totalCredit - s.totals.totalDebit)}</td></tr>`;
-      });
-      comp += '</tbody></table>';
-      compareWrap.innerHTML = comp;
-    } else {
-      compareWrap.innerText = 'Upload multiple files and analyze to compare side-by-side.';
-    }
-
-    // download handlers
-    downloadSummary.onclick = ()=> downloadSummaryExcel(parsedStatements, merged, ref);
-    downloadDetailed.onclick = ()=> downloadDetailedExcel(parsedStatements, ref);
-    downloadSummaryBtn.onclick = downloadSummary.onclick;
-    downloadDetailedBtn.onclick = downloadDetailed.onclick;
-
-    // save to history if requested
-    if (storeHistoryCheckbox.checked) saveAnalysesToHistory(ref, parsedStatements);
-    populateAnalysisSelect();
-    renderHistory();
-  }
-
-  /* ====== Download Excel functions ====== */
-  function downloadSummaryExcel(statements, mergedMonthly, ref){
-    const wb = XLSX.utils.book_new();
-    const monthsSorted = Object.keys(mergedMonthly).sort().reverse();
-    const rows = [['S/N','Month','Debit','Credit']];
-    let sn = 1, totalD = 0, totalC = 0;
-    for (let k of monthsSorted) {
-      const d = mergedMonthly[k].debit || 0;
-      const c = mergedMonthly[k].credit || 0;
-      rows.push([sn, monthLabelFromKey(k), d, c]);
-      totalD += d; totalC += c; sn++;
-    }
-    rows.push(['', 'Total', totalD, totalC]);
-    const monthsCount = monthsSorted.length || 1;
-    rows.push(['', 'Average', totalD / monthsCount, totalC / monthsCount]);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'CashFlowSummary');
-
-    // meta sheet
-    const meta = [['Analysis Ref', ref], ['Files', statements.map(s=>s.fileName).join(', ')], ['Generated', new Date().toLocaleString()]];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(meta), 'Meta');
-    XLSX.writeFile(wb, `${(ref||'statement')}_cashflow_summary.xlsx`);
-  }
-
-  function downloadDetailedExcel(statements, ref){
-    const wb = XLSX.utils.book_new();
-    statements.forEach((s, idx) => {
-      const rows = s.rows.map(r=> ({ Date: r.Date, Description: r.Description, Debit: r.Debit, Credit: r.Credit }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const name = (s.fileName || `sheet${idx+1}`).slice(0,31);
-      XLSX.utils.book_append_sheet(wb, ws, name);
-
-      // monthly
-      const mo = [['Month','Total Debit','Total Credit']];
-      Object.keys(s.monthly).sort().reverse().forEach(m => mo.push([monthLabelFromKey(m), s.monthly[m].debit, s.monthly[m].credit]));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mo), (name+'_monthly').slice(0,31));
-
-      // interpretation
-      const interp = [
-        ['Principal Arrears', s.insights.principalArrears],
-        ['Days in Arrears', s.insights.daysInArrears],
-        ['Default Interest Estimate', s.insights.defaultInterestEstimate],
-        ['Loan Hint', s.insights.loanHint]
-      ];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(interp), (name + '_interpret').slice(0,31));
-    });
-    XLSX.writeFile(wb, `${(ref||'detailed_statements')}.xlsx`);
-  }
-
-  /* ====== History functions ====== */
-  function saveAnalysesToHistory(ref, parsedStatements){
-    const hist = loadHistory();
-    const now = new Date().toISOString();
-    parsedStatements.forEach(s=>{
-      hist.unshift({
-        id: 'h_' + Math.random().toString(36).slice(2,8),
-        ref,
-        fileName: s.fileName,
-        totals: s.totals,
-        savedAt: now,
-        monthly: s.monthly
-      });
-    });
-    if (hist.length > 100) hist.splice(100);
-    localStorage.setItem(LS_HISTORY, JSON.stringify(hist));
-  }
-
-  function loadHistory(){
-    try { return JSON.parse(localStorage.getItem(LS_HISTORY)) || []; } catch(e) { return []; }
-  }
-
-  function renderHistory(){
-    const hist = loadHistory();
-    if (!hist.length) { historyList.innerHTML = '<div class="text-sm text-slate-500">No saved analyses.</div>'; return; }
-    let html = '<table class="w-full text-sm"><thead class="bg-slate-100"><tr><th class="p-2">Saved At</th><th class="p-2">Ref</th><th class="p-2">File</th><th class="p-2 text-right">Debit</th><th class="p-2 text-right">Credit</th></tr></thead><tbody>';
-    hist.forEach(h => {
-      html += `<tr><td class="p-2">${h.savedAt}</td><td class="p-2">${h.ref}</td><td class="p-2">${h.fileName}</td><td class="p-2 text-right">${formatMoney(h.totals.totalDebit)}</td><td class="p-2 text-right">${formatMoney(h.totals.totalCredit)}</td></tr>`;
-    });
-    html += '</tbody></table>';
-    historyList.innerHTML = html;
-  }
-
-  exportHistoryBtn.addEventListener('click', ()=>{
-    const hist = loadHistory();
-    if (!hist.length) return alert('No history to export.');
-    const wb = XLSX.utils.book_new();
-    const rows = [['SavedAt','Ref','File','TotalDebit','TotalCredit']];
-    hist.forEach(h => rows.push([h.savedAt, h.ref, h.fileName, h.totals.totalDebit, h.totals.totalCredit]));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'History');
-    XLSX.writeFile(wb, 'audacity_history.xlsx');
-  });
-
-  clearHistoryBtn.addEventListener('click', ()=>{
-    if (!confirm('Clear history?')) return;
-    localStorage.removeItem(LS_HISTORY);
-    renderHistory();
-    populateAnalysisSelect();
-  });
-
-  /* ====== Populate analysis select for AI module ====== */
-  function populateAnalysisSelect(){
-    const sel = analysisSelect;
-    sel.innerHTML = '';
-    const hist = loadHistory();
-    if (!hist.length) {
-      const opt = document.createElement('option'); opt.textContent = 'No saved analyses'; opt.disabled = true; sel.appendChild(opt); return;
-    }
-    hist.forEach(h => {
-      const opt = document.createElement('option');
-      opt.value = JSON.stringify(h);
-      opt.textContent = `${h.savedAt} — ${h.ref} — ${h.fileName}`;
-      sel.appendChild(opt);
-    });
-  }
-
-  /* ====== Analyze button ====== */
-  analyzeBtn.addEventListener('click', async ()=>{
-    if (!uploadedFiles.length) return alert('Please upload at least one statement file.');
-    const ref = stmtRefInput.value.trim() || ('STAT_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'_'));
-    analyses = [];
-    noResults.style.display = 'none';
-    resultsCard.classList.add('hidden');
-    compareWrap.innerText = 'Analyzing... this may take a moment (PDF OCR is slower).';
-
-    for (let f of uploadedFiles) {
-      try {
-        const parsed = await parseFileToRows(f);
-        const rawRows = parsed.rows || [];
-        const normalizedRows = normalizeRows(rawRows);
-        const monthly = computeMonthlySummary(normalizedRows);
-        const totals = computeTotals(monthly);
-        const insights = interpretLedger(normalizedRows, monthly, totals);
-        analyses.push({ ref, fileName: f.name, rows: normalizedRows, monthly, totals, insights, raw: parsed });
-      } catch (e) {
-        console.error('Parse failed for', f.name, e);
-        alert('Failed to parse ' + f.name + ' — check console.');
-      }
-    }
-
-    // render results
-    renderResults(ref, analyses);
-  });
-
-  /* ====== OCR tab controls ====== */
-  ocrDrop.addEventListener('click', ()=> ocrInput.click());
-  ocrInput.addEventListener('change', (e) => {
-    window.ocrFile = e.target.files[0];
-    ocrTextEl.textContent = `Selected file: ${window.ocrFile.name}`;
-  });
-
-  runOCRBtn.addEventListener('click', async ()=>{
-    if (!window.ocrFile) return alert('Select a PDF/image to OCR first.');
-    ocrTextEl.textContent = 'OCR running — please wait...';
-    try {
-      const name = window.ocrFile.name.toLowerCase();
-      let parsed;
-      if (name.endsWith('.pdf')) parsed = await parsePdfWithOCR(window.ocrFile);
-      else parsed = await parseImageWithOCR(window.ocrFile);
-      ocrTextEl.textContent = parsed.ocrText || (parsed.rows ? JSON.stringify(parsed.rows.slice(0,40), null, 2) : 'No OCR text found.');
-      window.latestOCRRows = parsed.rows || [];
-    } catch (e) {
-      console.error(e);
-      alert('OCR failed — see console.');
-      ocrTextEl.textContent = '';
-    }
-  });
-
-  clearOCRBtn.addEventListener('click', ()=> {
-    window.ocrFile = null; window.latestOCRRows = []; ocrTextEl.textContent = ''; ocrInput.value = '';
-  });
-
-  /* ====== AI interpretation controls ====== */
-  runInterpretBtn.addEventListener('click', ()=>{
-    const sel = analysisSelect;
-    if (sel && sel.value && sel.value !== 'No saved analyses') {
-      try {
-        const parsed = JSON.parse(sel.value);
-        interpretOutput.textContent = `Stored summary selected.\nRef: ${parsed.ref}\nFile: ${parsed.fileName}\nTotal Debit: ${formatMoney(parsed.totals.totalDebit)}\nTotal Credit: ${formatMoney(parsed.totals.totalCredit)}\n\nFor deeper interpretation analyze the raw statement then use this module.`;
-        return;
-      } catch(e){}
-    }
-    // fallback to last OCR rows
-    if (window.latestOCRRows && window.latestOCRRows.length) {
-      const normalized = normalizeRows(window.latestOCRRows);
-      const monthly = computeMonthlySummary(normalized);
-      const totals = computeTotals(monthly);
-      const ins = interpretLedger(normalized, monthly, totals);
-      const out = `Interpretation (heuristic)\n\nPrincipal in arrears: ${formatMoney(ins.principalArrears)}\nDays in arrears: ${ins.daysInArrears}\nDefault interest estimate (10% p.a): ${formatMoney(ins.defaultInterestEstimate)}\n\nLoan hint: ${ins.loanHint}\nFlagged rows: ${ins.flaggedRows.length}`;
-      interpretOutput.textContent = out;
-    } else {
-      alert('No OCR rows available. Run OCR, or analyze a statement first.');
-    }
-  });
-
-  clearInterpretBtn.addEventListener('click', ()=> interpretOutput.textContent = '');
-
-  /* ====== Init UI ====== */
-  renderHistory();
-  populateAnalysisSelect();
-  // keep analyzer open by default
-  showTab('analyzer');
-
+    feather.replace()
   </script>
 </body>
 </html>
