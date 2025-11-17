@@ -1,230 +1,102 @@
-const isoDate = parsedDate ? parsedDate.toISOString().slice(0,10) : '';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — OCR & AI Modules</title>
+  <style>
+    /* Reset & base */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { display: flex; min-height: 100vh; background: #f4f6f8; }
 
-const desc = (r.Description || r.Details || '').toString().trim();
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: #1e1e2f;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    .sidebar h2 { margin-bottom: 40px; font-size: 24px; }
+    .nav-link {
+      padding: 15px 20px;
+      margin-bottom: 10px;
+      background: #2c2c3e;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .nav-link:hover, .nav-link.active { background: #4b4b6b; }
 
-const debit = parseFloat(r.Debit || r.debit || r['Debit Amount'] || 0) || 0;
-const credit = parseFloat(r.Credit || r.credit || r['Credit Amount'] || 0) || 0;
+    /* Main content */
+    .main {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+    .module {
+      display: none;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .module.active { display: block; }
 
-normalized.push({
-  Date: isoDate,
-  Description: desc,
-  Debit: debit,
-  Credit: credit
-});
-}
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; flex-direction: row; overflow-x: auto; }
+      .sidebar h2 { display: none; }
+      .nav-link { flex: 1; margin: 5px; text-align: center; }
+      .main { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Dashboard</h2>
+    <div class="nav-link active" data-target="moduleA">OCR Upload</div>
+    <div class="nav-link" data-target="moduleB">AI Arrears Interpretation</div>
+    <div class="nav-link" data-target="moduleC">Report Generator</div>
+  </div>
 
-return normalized;
-}
+  <div class="main">
+    <div id="moduleA" class="module active">
+      <h1>OCR Upload</h1>
+      <p>Upload documents for OCR processing here.</p>
+      <input type="file" accept=".pdf,.jpg,.png" />
+    </div>
 
-/* Flexible date parser */
-function parseFlexibleDate(val){
-if (!val) return null;
-let v = String(val).trim();
+    <div id="moduleB" class="module">
+      <h1>AI Arrears Interpretation</h1>
+      <p>Analyze arrears using AI.</p>
+      <button>Run Analysis</button>
+    </div>
 
-if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(v)) return new Date(v);
+    <div id="moduleC" class="module">
+      <h1>Report Generator</h1>
+      <p>Generate reports from processed data.</p>
+      <button>Generate Report</button>
+    </div>
+  </div>
 
-if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(v)) {
-  const [a,b,c] = v.split(/[-/]/);
-  return new Date(`${c}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`);
-}
+  <script>
+    const links = document.querySelectorAll('.nav-link');
+    const modules = document.querySelectorAll('.module');
 
-return null;
-}
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        // Remove active class from all
+        links.forEach(l => l.classList.remove('active'));
+        modules.forEach(m => m.classList.remove('active'));
 
-/* ----- Monthly summary builder ----- */
-function buildMonthlySummary(rows){
-const map = {};
-rows.forEach(r=>{
-  if (!r.Date) return;
-  const month = r.Date.slice(0,7);  // YYYY-MM
-  if (!map[month]) map[month] = { Debit:0, Credit:0 };
-  map[month].Debit += r.Debit||0;
-  map[month].Credit += r.Credit||0;
-});
-return map;
-}
-
-/* ----- Build HTML summary table ----- */
-function renderSummaryTable(summary){
-let html = `
-<table class="min-w-full border text-sm">
-<thead class="bg-slate-100">
-<tr>
-<th class="border px-2 py-1">Month</th>
-<th class="border px-2 py-1">Debit</th>
-<th class="border px-2 py-1">Credit</th>
-</tr>
-</thead><tbody>
-`;
-
-Object.keys(summary).sort().forEach(m=>{
-  html += `
-    <tr>
-      <td class="border px-2 py-1">${m}</td>
-      <td class="border px-2 py-1">${summary[m].Debit.toLocaleString()}</td>
-      <td class="border px-2 py-1">${summary[m].Credit.toLocaleString()}</td>
-    </tr>
-  `;
-});
-html += `</tbody></table>`;
-return html;
-}
-
-/* ---------- Analyze Button ---------- */
-document.getElementById('analyzeBtn').addEventListener('click', async ()=>{
-if (uploadedFiles.length===0){
-  alert('Upload at least one statement.');
-  return;
-}
-
-const stmtRef = document.getElementById('stmtRef').value.trim() || 'REF-' + Date.now();
-const allRows = [];
-let ocrTextCollected = '';
-
-for (let f of uploadedFiles){
-  const parsed = await parseFileToRows(f);
-  if (parsed.rows) allRows.push(...parsed.rows);
-  if (parsed.ocrText) ocrTextCollected += '\n' + parsed.ocrText;
-}
-
-const normalized = normalizeRows(allRows);
-const summary = buildMonthlySummary(normalized);
-
-const analysisObj = {
-  ref: stmtRef,
-  files: uploadedFiles.map(f=>f.name),
-  rows: normalized,
-  summary,
-  ocrText: ocrTextCollected,
-  timestamp: new Date().toISOString()
-};
-
-analyses = [analysisObj];
-
-document.getElementById('resultTitle').textContent = `Analysis Results — ${stmtRef}`;
-document.getElementById('resultMeta').textContent = `Ref: ${stmtRef} • Files: ${uploadedFiles.length}`;
-
-// summary table
-document.getElementById('summaryTableWrap').innerHTML = renderSummaryTable(summary);
-
-// show results
-document.getElementById('resultsCard').classList.remove('hidden');
-document.getElementById('noResults').style.display = 'none';
-
-populateHistory();
-
-// Populate AI dropdown
-populateAnalysisSelect();
-});
-
-/* ---------- Save Analysis History ---------- */
-function populateHistory(){
-if (!document.getElementById('storeHistory').checked) return;
-
-let saved = JSON.parse(localStorage.getItem(LS_HISTORY)||'[]');
-saved.push(analyses[0]);
-localStorage.setItem(LS_HISTORY, JSON.stringify(saved));
-
-renderHistory();
-}
-
-function renderHistory(){
-const saved = JSON.parse(localStorage.getItem(LS_HISTORY)||'[]');
-if (saved.length===0){
-  document.getElementById('historyList').textContent = 'No saved analyses.';
-  return;
-}
-let html = '';
-saved.forEach((a,i)=>{
-  html += `
-  <div class="border-b py-1">
-    <strong>${i+1}. ${a.ref}</strong>
-    <div class="text-xs text-slate-500">${a.timestamp}</div>
-  </div>`;
-});
-document.getElementById('historyList').innerHTML = html;
-}
-
-document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
-localStorage.removeItem(LS_HISTORY);
-renderHistory();
-});
-
-/* ---------- AI INTERPRETATION MODULE ---------- */
-function populateAnalysisSelect(){
-const sel = document.getElementById('analysisSelect');
-sel.innerHTML = '';
-if (analyses.length===0) return;
-
-analyses.forEach((a,i)=>{
-  const opt = document.createElement('option');
-  opt.value = i;
-  opt.textContent = `${a.ref} — ${a.rows.length} rows`;
-  sel.appendChild(opt);
-});
-}
-
-document.getElementById('runInterpretBtn').addEventListener('click', ()=>{
-const sel = document.getElementById('analysisSelect');
-if (!sel.value){
-  alert('No analysis selected.');
-  return;
-}
-const a = analyses[sel.value];
-const out = interpretHeuristic(a.rows);
-document.getElementById('interpretOutput').textContent = out;
-});
-
-/* Simple arrears logic */
-function interpretHeuristic(rows){
-let debitSum = 0;
-let creditSum = 0;
-
-rows.forEach(r=>{
-  debitSum += r.Debit||0;
-  creditSum += r.Credit||0;
-});
-
-let balance = creditSum - debitSum;
-let status = balance < 0 ? 'Possible arrears' : 'Likely up to date';
-
-return `
-Total Debit: ${debitSum.toLocaleString()}
-Total Credit: ${creditSum.toLocaleString()}
-
-Balance: ${balance.toLocaleString()}
-Status: ${status}
-`;
-}
-
-/* ---------- Report Module ---------- */
-document.getElementById('downloadSummaryBtn')
-  .addEventListener('click', ()=> exportSummaryExcel());
-
-document.getElementById('downloadDetailedBtn')
-  .addEventListener('click', ()=> exportDetailedExcel());
-
-function exportSummaryExcel(){
-if (analyses.length===0) return alert('No analysis.');
-const a = analyses[0];
-const ws = XLSX.utils.json_to_sheet(
-  Object.keys(a.summary).map(m=>({
-    Month: m,
-    Debit: a.summary[m].Debit,
-    Credit: a.summary[m].Credit
-  }))
-);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, 'Summary');
-XLSX.writeFile(wb, `Summary-${a.ref}.xlsx`);
-}
-
-function exportDetailedExcel(){
-if (analyses.length===0) return alert('No analysis.');
-const a = analyses[0];
-const ws = XLSX.utils.json_to_sheet(a.rows);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, 'Detailed');
-XLSX.writeFile(wb, `Detailed-${a.ref}.xlsx`);
-}
-</script>
+        // Add active class to clicked
+        link.classList.add('active');
+        document.getElementById(link.dataset.target).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
