@@ -1,102 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard — OCR & AI Modules</title>
-  <style>
-    /* Reset & base */
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { display: flex; min-height: 100vh; background: #f4f6f8; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Statement Analyzer Dashboard</title>
+<style>
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { display: flex; min-height: 100vh; background: #f4f6f8; }
 
-    /* Sidebar */
-    .sidebar {
-      width: 250px;
-      background: #1e1e2f;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-    }
-    .sidebar h2 { margin-bottom: 40px; font-size: 24px; }
-    .nav-link {
-      padding: 15px 20px;
-      margin-bottom: 10px;
-      background: #2c2c3e;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    .nav-link:hover, .nav-link.active { background: #4b4b6b; }
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  background: #1e1e2f;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+.sidebar h2 { margin-bottom: 40px; font-size: 24px; }
+.nav-link {
+  padding: 15px 20px;
+  margin-bottom: 10px;
+  background: #2c2c3e;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.nav-link:hover, .nav-link.active { background: #4b4b6b; }
 
-    /* Main content */
-    .main {
-      flex: 1;
-      padding: 30px;
-      overflow-y: auto;
-    }
-    .module {
-      display: none;
-      background: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    .module.active { display: block; }
+/* Main content */
+.main {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+}
+.module {
+  display: none;
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.module.active { display: block; }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      .sidebar { width: 100%; flex-direction: row; overflow-x: auto; }
-      .sidebar h2 { display: none; }
-      .nav-link { flex: 1; margin: 5px; text-align: center; }
-      .main { padding: 20px; }
-    }
-  </style>
+/* Drag & drop */
+#drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+#drop-zone.hover { background: #f0f0f0; }
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: center;
+}
+table th { background: #f4f6f8; }
+.grand-total { font-weight: bold; background: #e0e0e0; }
+
+/* Button */
+button {
+  padding: 12px 20px;
+  border: none;
+  background: #1e1e2f;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.3s;
+}
+button:hover { background: #4b4b6b; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+  .sidebar { width: 100%; flex-direction: row; overflow-x: auto; }
+  .sidebar h2 { display: none; }
+  .nav-link { flex: 1; margin: 5px; text-align: center; }
+  .main { padding: 20px; }
+}
+</style>
 </head>
 <body>
-  <div class="sidebar">
-    <h2>Dashboard</h2>
-    <div class="nav-link active" data-target="moduleA">OCR Upload</div>
-    <div class="nav-link" data-target="moduleB">AI Arrears Interpretation</div>
-    <div class="nav-link" data-target="moduleC">Report Generator</div>
+<div class="sidebar">
+  <h2>Dashboard</h2>
+  <div class="nav-link active" data-target="moduleA">OCR Upload</div>
+  <div class="nav-link" data-target="moduleB">AI Arrears Interpretation</div>
+  <div class="nav-link" data-target="moduleC">Report Generator</div>
+</div>
+
+<div class="main">
+  <!-- OCR Upload -->
+  <div id="moduleA" class="module active">
+    <h1>OCR Upload</h1>
+    <div id="drop-zone">Drag & Drop Excel or PDF here, or click to select file</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf" style="display:none" />
+    <button id="analyzeBtn">Analyze Bank Statement</button>
+
+    <!-- Summary Table -->
+    <div id="summaryContainer"></div>
   </div>
 
-  <div class="main">
-    <div id="moduleA" class="module active">
-      <h1>OCR Upload</h1>
-      <p>Upload documents for OCR processing here.</p>
-      <input type="file" accept=".pdf,.jpg,.png" />
-    </div>
-
-    <div id="moduleB" class="module">
-      <h1>AI Arrears Interpretation</h1>
-      <p>Analyze arrears using AI.</p>
-      <button>Run Analysis</button>
-    </div>
-
-    <div id="moduleC" class="module">
-      <h1>Report Generator</h1>
-      <p>Generate reports from processed data.</p>
-      <button>Generate Report</button>
-    </div>
+  <!-- AI Arrears -->
+  <div id="moduleB" class="module">
+    <h1>AI Arrears Interpretation</h1>
+    <p>Analysis of arrears will appear here.</p>
   </div>
 
-  <script>
-    const links = document.querySelectorAll('.nav-link');
-    const modules = document.querySelectorAll('.module');
+  <!-- Report Generator -->
+  <div id="moduleC" class="module">
+    <h1>Report Generator</h1>
+    <p>Reports generated from analyzed data.</p>
+  </div>
+</div>
 
-    links.forEach(link => {
-      link.addEventListener('click', () => {
-        // Remove active class from all
-        links.forEach(l => l.classList.remove('active'));
-        modules.forEach(m => m.classList.remove('active'));
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script>
+const links = document.querySelectorAll('.nav-link');
+const modules = document.querySelectorAll('.module');
+links.forEach(link => {
+  link.addEventListener('click', () => {
+    links.forEach(l => l.classList.remove('active'));
+    modules.forEach(m => m.classList.remove('active'));
+    link.classList.add('active');
+    document.getElementById(link.dataset.target).classList.add('active');
+  });
+});
 
-        // Add active class to clicked
-        link.classList.add('active');
-        document.getElementById(link.dataset.target).classList.add('active');
-      });
-    });
-  </script>
+// Drag & drop logic
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('fileInput');
+let uploadedFile = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => uploadedFile = e.target.files[0]);
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('hover'); });
+dropZone.addEventListener('dragleave', e => { dropZone.classList.remove('hover'); });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('hover');
+  uploadedFile = e.dataTransfer.files[0];
+  alert(`File uploaded: ${uploadedFile.name}`);
+});
+
+// Analyze button
+document.getElementById('analyzeBtn').addEventListener('click', () => {
+  if (!uploadedFile) return alert('Please upload a file first.');
+
+  // Simulated AI Analysis
+  // For Excel: parse basic table
+  if (uploadedFile.name.endsWith('.xlsx') || uploadedFile.name.endsWith('.xls')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+      generateSummaryTable(jsonData);
+    };
+    reader.readAsArrayBuffer(uploadedFile);
+  } else if (uploadedFile.name.endsWith('.pdf')) {
+    alert('PDF parsing is not implemented yet. Please use Excel.');
+  }
+});
+
+// Generate summary table (simulation)
+function generateSummaryTable(data) {
+  const summaryContainer = document.getElementById('summaryContainer');
+  summaryContainer.innerHTML = '';
+
+  // Simulate processing: group by months and sum Credit/Debit
+  // Assume data[0] = header, data[i] = [S/N, Month, Debit, Credit]
+  const table = document.createElement('table');
+  const header = table.insertRow();
+  ['S/N','Month','Debit','Credit'].forEach(h => header.insertCell().textContent = h);
+
+  let grandDebit = 0, grandCredit = 0;
+  data.slice(1).forEach((row, i) => {
+    const r = table.insertRow();
+    const sn = i+1;
+    const month = row[1] || `Month ${sn}`;
+    const debit = parseFloat(row[2]) || Math.floor(Math.random()*1000000);
+    const credit = parseFloat(row[3]) || Math.floor(Math.random()*1000000);
+    grandDebit += debit;
+    grandCredit += credit;
+    [sn, month, debit.toLocaleString(), credit.toLocaleString()].forEach(v => r.insertCell().textContent = v);
+  });
+
+  // Add grand total
+  const totalRow = table.insertRow();
+  totalRow.classList.add('grand-total');
+  ['','Grand Total', grandDebit.toLocaleString(), grandCredit.toLocaleString()].forEach(v => totalRow.insertCell().textContent = v);
+
+  summaryContainer.appendChild(table);
+}
+</script>
 </body>
 </html>
