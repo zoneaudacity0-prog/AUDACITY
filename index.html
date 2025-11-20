@@ -1,127 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bank Statement Monthly Summary</title>
-<style>
-body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
-.container { max-width: 1000px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.1);}
-h1, h2 { text-align: center; }
-input, button { padding: 8px; margin-right: 10px; border-radius: 5px; border: 1px solid #ccc; }
-button { cursor: pointer; background: #2563eb; color: white; border: none; }
-button:hover { background: #1e40af; }
-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
-th:first-child, td:first-child { text-align: center; }
-th { background: #1f2937; color: white; }
-tfoot td { font-weight: bold; background: #f3f4f6; }
-#download { display: none; }
-</style>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AUDACITY ZONE — Your Dashboard Experience</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Reset & Base */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background-color: #f7f8fa; color: #1a1a1a; line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; display: block; }
+
+    /* Navbar */
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 50px; background-color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+    nav .logo { font-size: 1.8rem; font-weight: 700; color: #0d6efd; }
+    nav ul { display: flex; gap: 25px; list-style: none; }
+    nav ul li { font-weight: 600; }
+    nav ul li a { transition: color 0.3s; }
+    nav ul li a:hover { color: #0d6efd; }
+    nav .btn { padding: 10px 20px; background-color: #0d6efd; color: #fff; border-radius: 6px; font-weight: 600; transition: background-color 0.3s; }
+    nav .btn:hover { background-color: #0956c1; }
+
+    /* Hero Section */
+    .hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 100px 20px 80px; background-color: #e9f2ff; }
+    .hero h1 { font-size: 3rem; font-weight: 700; margin-bottom: 20px; color: #0d6efd; }
+    .hero p { font-size: 1.2rem; max-width: 600px; margin-bottom: 30px; }
+    .hero .hero-btn { padding: 15px 30px; background-color: #0d6efd; color: #fff; border-radius: 8px; font-size: 1rem; font-weight: 600; transition: background-color 0.3s; }
+    .hero .hero-btn:hover { background-color: #0956c1; }
+
+    /* Features Section */
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; padding: 80px 50px; background-color: #fff; }
+    .feature-card { background-color: #f7f8fa; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transition: transform 0.3s; }
+    .feature-card:hover { transform: translateY(-8px); }
+    .feature-card img { width: 60px; margin-bottom: 20px; }
+    .feature-card h3 { font-size: 1.4rem; margin-bottom: 15px; color: #0d6efd; }
+    .feature-card p { font-size: 1rem; color: #555; }
+
+    /* Testimonials */
+    .testimonials { padding: 80px 50px; text-align: center; background-color: #e9f2ff; }
+    .testimonials h2 { font-size: 2rem; margin-bottom: 50px; color: #0d6efd; }
+    .testimonial-card { max-width: 500px; margin: 0 auto 40px; background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .testimonial-card p { font-size: 1rem; margin-bottom: 15px; color: #555; }
+    .testimonial-card h4 { font-weight: 600; color: #0d6efd; }
+
+    /* Footer */
+    footer { background-color: #1a1a1a; color: #fff; padding: 50px; text-align: center; }
+    footer p { margin-bottom: 10px; }
+    footer a { color: #0d6efd; transition: color 0.3s; }
+    footer a:hover { color: #0956c1; }
+
+    /* Responsive */
+    @media(max-width:768px){
+      nav { flex-direction: column; gap: 15px; }
+      .hero h1 { font-size: 2.5rem; }
+      .features { padding: 60px 20px; gap: 25px; }
+      .testimonials { padding: 60px 20px; }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-<h1>CRDB Bank Monthly Cash Flow Summary</h1>
-<input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
-<button id="processBtn">Process Statement</button>
-<button id="download">Download CSV</button>
-<h2 id="accountName"></h2>
-<div id="tableContainer"></div>
-</div>
 
-<script>
-function normalizeNumber(val){
-    if(!val) return 0;
-    let str = String(val).replace(/,/g,'').replace(/\s/g,'').trim();
-    if(str === '') return 0;
-    const n = parseFloat(str);
-    return isNaN(n)?0:n;
-}
+  <!-- Navbar -->
+  <nav>
+    <div class="logo">AUDACITY ZONE</div>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#testimonials">Testimonials</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <a href="#" class="btn">Get Started</a>
+  </nav>
 
-function monthKey(dateStr){
-    if(!dateStr) return null;
-    const d = new Date(dateStr);
-    if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    return null;
-}
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>Welcome to AUDACITY ZONE</h1>
+    <p>Your ultimate platform for dynamic dashboards, insights, and analytics — all in one place.</p>
+    <a href="#" class="hero-btn">Try It Now</a>
+  </section>
 
-document.getElementById('processBtn').addEventListener('click', async ()=>{
-    const file = document.getElementById('fileInput').files[0];
-    if(!file){ alert("Please upload a bank statement file."); return; }
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="feature-card">
+      <img src="https://img.icons8.com/color/96/000000/data-configuration.png" alt="Feature 1">
+      <h3>Real-time Analytics</h3>
+      <p>Get live updates and visual reports for all your business metrics instantly.</p>
+    </div>
+    <div class="feature-card">
+      <img src="https://img.icons8.com/color/96/000000/cloud.png" alt="Feature 2">
+      <h3>Cloud Integration</h3>
+      <p>Access your dashboards anywhere with secure cloud-based storage.</p>
+    </div>
+    <div class="feature-card">
+      <img src="https://img.icons8.com/color/96/000000/lock.png" alt="Feature 3">
+      <h3>Secure & Private</h3>
+      <p>All your data is encrypted, keeping your insights safe and private.</p>
+    </div>
+  </section>
 
-    let rows=[], headers=[];
-    const name = file.name.toLowerCase();
-    if(name.endsWith('.csv')){
-        const text = await file.text();
-        const parsed = Papa.parse(text, {header:true, skipEmptyLines:true});
-        rows = parsed.data;
-        headers = parsed.meta.fields;
-    } else {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data,{type:'array'});
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(sheet,{defval:""});
-        headers = rows[0]?Object.keys(rows[0]):[];
-    }
+  <!-- Testimonials Section -->
+  <section class="testimonials" id="testimonials">
+    <h2>What Our Users Say</h2>
+    <div class="testimonial-card">
+      <p>"AUDACITY ZONE has completely transformed the way I monitor my business. Everything is in one place!"</p>
+      <h4>— Jane Doe</h4>
+    </div>
+    <div class="testimonial-card">
+      <p>"Fast, reliable, and incredibly user-friendly. The analytics dashboard is a game-changer."</p>
+      <h4>— John Smith</h4>
+    </div>
+  </section>
 
-    // Detect Account Name
-    let accountName = "Unknown Account";
-    for(const r of rows){
-        for(const key in r){
-            if(r[key].toString().toLowerCase().includes("account name")){
-                accountName = r[key] || "Unknown Account";
-            }
-        }
-    }
-    document.getElementById('accountName').textContent = accountName;
+  <!-- Footer -->
+  <footer id="contact">
+    <p>&copy; 2025 AUDACITY ZONE. All rights reserved.</p>
+    <p>Follow us on <a href="#">Twitter</a> | <a href="#">LinkedIn</a> | <a href="#">Facebook</a></p>
+  </footer>
 
-    // Detect debit, credit, date columns
-    const dateKey = headers.find(h=>/date/i.test(h) && /trans|value/i.test(h));
-    const debitKey = headers.find(h=>/debit|dr/i.test(h));
-    const creditKey = headers.find(h=>/credit|cr/i.test(h));
-
-    if(!dateKey || !debitKey || !creditKey){
-        alert("Could not detect Date, Debit, or Credit columns. Check file format.");
-        return;
-    }
-
-    const monthly = {};
-    for(const r of rows){
-        const m = monthKey(r[dateKey]);
-        if(!m) continue;
-        const debit = normalizeNumber(r[debitKey]);
-        const credit = normalizeNumber(r[creditKey]);
-        if(!monthly[m]) monthly[m] = {debit:0, credit:0};
-        monthly[m].debit += debit;
-        monthly[m].credit += credit;
-    }
-
-    const sortedMonths = Object.keys(monthly).sort();
-    let html = `<table><thead><tr><th>S/N</th><th>Month</th><th>Total Debit</th><th>Total Credit</th></tr></thead><tbody>`;
-    let totalDebit = 0, totalCredit = 0;
-    const csvRows = [["Month","Total Debit","Total Credit"]];
-    sortedMonths.forEach((m,i)=>{
-        const d = monthly[m].debit;
-        const c = monthly[m].credit;
-        html += `<tr><td>${i+1}</td><td>${m}</td><td>${d.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${c.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`;
-        totalDebit += d;
-        totalCredit += c;
-        csvRows.push([m,d.toFixed(2),c.toFixed(2)]);
-    });
-    html += `</tbody><tfoot><tr><td colspan="2">TOTAL</td><td>${totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`;
-    html += `<tr><td colspan="2">AVERAGE</td><td>${(totalDebit/sortedMonths.length).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${(totalCredit/sortedMonths.length).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr></tfoot></table>`;
-    document.getElementById('tableContainer').innerHTML = html;
-
-    // CSV download
-    const csvContent = csvRows.map(r=>r.join(',')).join('\n');
-    const blob = new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
-    const blobUrl = URL.createObjectURL(blob);
-    const downloadBtn = document.getElementById('download');
-    downloadBtn.style.display = 'inline-block';
-    downloadBtn.onclick = ()=>{ const a = document.createElement('a'); a.href = blobUrl; a.download = 'monthly-summary.csv'; document.body.appendChild(a); a.click(); a.remove(); };
-});
-</script>
 </body>
 </html>
