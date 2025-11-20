@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bank Statement Dashboard</title>
+<title>Bank Statement Dashboard — Fixed Header Detection</title>
 
 <!-- Dependencies -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -34,6 +34,10 @@
     .error { margin-top:10px; color:#b91c1c; }
     .download-btn { margin-left: 8px; background:#059669; color:#fff; border:none; padding:10px 12px; border-radius:6px; cursor:pointer; }
     .download-btn:disabled { opacity:0.5; cursor:default; }
+    .mapping { margin-top:12px; background:#fff; padding:12px; border-radius:8px; }
+    .mapping select { padding:8px; margin-right:8px; }
+    .preview { margin-top:12px; background:#fff; padding:12px; border-radius:8px; font-size:13px; color:#111827; }
+    .meta-row { font-weight:600; color:#374151; margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -61,14 +65,25 @@
             </div>
 
             <div class="controls">
-                <button class="analyze" onclick="analyzeFile()">Analyze Statement</button>
+                <button class="analyze" id="autoAnalyzeBtn" onclick="prepareAndAutoAnalyze()">Auto-detect & Analyze</button>
                 <button id="downloadMonthly" class="download-btn" disabled>Download monthly CSV</button>
             </div>
 
             <div class="status" id="statusMsg"></div>
             <div class="error" id="errorMsg"></div>
 
+            <!-- area for mapping UI if auto-detect fails or user wants to override -->
+            <div id="mappingArea" class="mapping hidden">
+                <div class="meta-row">Detected header row preview — please map columns if auto-detection was incorrect:</div>
+                <div id="headerList" style="margin-bottom:8px"></div>
+                <label>Date: <select id="mapDate"></select></label>
+                <label>Debit: <select id="mapDebit"></select></label>
+                <label>Credit: <select id="mapCredit"></select></label>
+                <button style="margin-left:8px;padding:8px 10px" onclick="processWithMapping()">Process with mapping</button>
+            </div>
+
             <div id="tableContainer"></div>
+            <div id="previewSample" class="preview hidden"></div>
         </div>
 
         <!-- Module B -->
@@ -93,8 +108,19 @@ const fileInput = document.getElementById('fileInput');
 const downloadBtn = document.getElementById('downloadMonthly');
 const statusMsg = document.getElementById('statusMsg');
 const errorMsg = document.getElementById('errorMsg');
+const mappingArea = document.getElementById('mappingArea');
+const headerListDiv = document.getElementById('headerList');
+const mapDate = document.getElementById('mapDate');
+const mapDebit = document.getElementById('mapDebit');
+const mapCredit = document.getElementById('mapCredit');
+const previewSample = document.getElementById('previewSample');
+
 let selectedFile = null;
 let lastCsvBlobUrl = null;
+let lastCsvRows = null; // for download
+let lastRawRows = null;  // raw array rows (header:1)
+let lastHeaderRowIndex = null;
+let lastHeaders = null;
 
 uploadArea.addEventListener('dragover', e => {
     e.preventDefault();
@@ -109,6 +135,7 @@ uploadArea.addEventListener('drop', e => {
         selectedFile = f;
         statusMsg.textContent = `Selected: ${f.name}`;
         errorMsg.textContent = '';
+        mappingArea.classList.add('hidden');
     }
 });
 fileInput.addEventListener('change', e => {
@@ -116,25 +143,21 @@ fileInput.addEventListener('change', e => {
     if (selectedFile) {
         statusMsg.textContent = `Selected: ${selectedFile.name}`;
         errorMsg.textContent = '';
+        mappingArea.classList.add('hidden');
     }
 });
 
 /* ---------- Helpers ---------- */
 function parseNumber(val) {
     if (val === null || val === undefined) return 0;
-    // handle numbers already
     if (typeof val === 'number') return val;
     let s = String(val).trim();
     if (s === '') return 0;
-    // parentheses means negative e.g. (1,200)
     const paren = /^\((.*)\)$/.exec(s);
     if (paren) s = '-' + paren[1];
-    // Remove currency symbols and letters, keep digits, dot and minus
     s = s.replace(/[^\d\.\-]/g, '');
-    // if more than one dot (bad), remove thousand dots (common in some formatting) - naive but helps
     const dots = (s.match(/\./g) || []).length;
     if (dots > 1) {
-        // remove all dots except last
         const lastDot = s.lastIndexOf('.');
         s = s.slice(0, lastDot).replace(/\./g,'') + s.slice(lastDot);
     }
@@ -143,32 +166,21 @@ function parseNumber(val) {
 }
 
 function monthKeyFromDate(d) {
-    if (!d && d !== 0) return null;
-    // If it's already a Date object:
     if (d instanceof Date && !isNaN(d)) {
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2,'0');
         return `${y}-${m}`;
     }
-    // Otherwise try string parsing
+    if (d === null || d === undefined) return null;
     let s = String(d).trim();
     if (s === '') return null;
-    // remove time part if present
     s = s.replace(/T.*$/,'').replace(/\s+\d{1,2}:\d{2}.*$/,'');
-    // Try Date.parse (ISO, mm/dd/yyyy, yyyy-mm-dd)
     const parsed = Date.parse(s);
-    if (!isNaN(parsed)) {
-        const dt = new Date(parsed);
-        return monthKeyFromDate(dt);
-    }
-    // Try splitting common delimiters (d/m/y or yyyy-mm-dd)
+    if (!isNaN(parsed)) return monthKeyFromDate(new Date(parsed));
     const parts = s.split(/[\/\-\.\s]/).filter(Boolean);
     if (parts.length >= 3) {
         let day = parts[0], month = parts[1], year = parts[2];
-        // if leading year (yyyy-mm-dd)
-        if (day.length === 4) {
-            year = parts[0]; month = parts[1]; day = parts[2];
-        }
+        if (day.length === 4) { year = parts[0]; month = parts[1]; day = parts[2]; }
         if (year.length === 2) year = '20' + year;
         if (!/^\d+$/.test(year) || !/^\d+$/.test(month)) return null;
         return `${year}-${String(Number(month)).padStart(2,'0')}`;
@@ -181,174 +193,312 @@ function findHeaderKey(headers, patterns) {
     for (const h of headers) {
         if (h === undefined || h === null) continue;
         const lower = String(h).toLowerCase();
-        for (const p of patterns) {
-            if (lower.includes(p)) return h;
-        }
+        for (const p of patterns) if (lower.includes(p)) return h;
     }
     return null;
 }
 
-/* ---------- Main analyze / processing ---------- */
-async function analyzeFile() {
-    errorMsg.textContent = '';
-    statusMsg.textContent = '';
-    downloadBtn.disabled = true;
-    if (!selectedFile) {
-        errorMsg.textContent = 'Please upload a file first!';
-        return;
+/* ---------- Heuristic to find header row inside messy sheets ---------- */
+function detectHeaderRow(rawRows) {
+    // rawRows: array of arrays (header:1)
+    const maxScan = Math.min(rawRows.length, 20);
+    const keywords = ['date','transaction date','txn date','value date','posted','debit','dr','withdrawal','credit','cr','deposit','amount'];
+
+    // 1) look for a row containing any strong keywords (date + debit or credit)
+    for (let i = 0; i < maxScan; i++) {
+        const row = rawRows[i].map(c => String(c||'').toLowerCase());
+        const hasDate = row.some(c => keywords.slice(0,6).some(k => c.includes(k)));
+        const hasDebit = row.some(c => /debit|dr|withdrawal|amount/.test(c));
+        const hasCredit = row.some(c => /credit|cr|deposit|amount/.test(c));
+        if ((hasDate && (hasDebit || hasCredit)) || (hasDebit && hasCredit)) return i;
     }
 
-    statusMsg.textContent = 'Reading file...';
+    // 2) fallback: pick first row with many non-empty cells and some alphabetic headers
+    for (let i = 0; i < maxScan; i++) {
+        const row = rawRows[i];
+        const nonEmpty = row.filter(c => (c !== null && c !== undefined && String(c).trim() !== '')).length;
+        const alphaCount = row.filter(c => /[A-Za-z]{2,}/.test(String(c))).length;
+        if (nonEmpty >= 3 && alphaCount >= 2) return i;
+    }
+
+    // 3) last resort: pick the first row (index 0)
+    return 0;
+}
+
+/* ---------- Step 1: prepare and try auto-detect ---------- */
+async function prepareAndAutoAnalyze() {
+    errorMsg.textContent = '';
+    statusMsg.textContent = '';
+    mappingArea.classList.add('hidden');
+    previewSample.classList.add('hidden');
+    downloadBtn.disabled = true;
+
+    if (!selectedFile) { errorMsg.textContent = 'Please select a file first.'; return; }
+    statusMsg.textContent = 'Reading file and detecting header...';
+
     try {
         const name = selectedFile.name.toLowerCase();
-        let rows = [];
-        let headers = [];
-
         if (name.endsWith('.csv') || name.endsWith('.txt')) {
+            // for CSV we still try to detect header by reading the first N lines
             const text = await selectedFile.text();
-            const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
-            rows = parsed.data;
-            headers = parsed.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
+            const sample = text.split(/\r?\n/).slice(0, 40);
+            // use PapaParse to get header:1 behaviour
+            const parsed = Papa.parse(text, { header: false, preview: 2000 });
+            const rawRows = parsed.data;
+            lastRawRows = rawRows;
+            const headerIndex = detectHeaderRow(rawRows);
+            lastHeaderRowIndex = headerIndex;
+            const headers = rawRows[headerIndex].map(h => String(h||'').trim());
+            lastHeaders = headers;
+            // create objects from rows after headerIndex
+            const objects = [];
+            for (let i = headerIndex + 1; i < rawRows.length; i++) {
+                const row = rawRows[i];
+                if (!row || row.length === 0) continue;
+                const obj = {};
+                for (let c = 0; c < headers.length; c++) obj[headers[c] || `col${c}`] = row[c];
+                // quick skip if row is completely empty
+                const allEmpty = Object.values(obj).every(v => v === undefined || v === null || String(v).trim() === '');
+                if (!allEmpty) objects.push(obj);
+            }
+            // attempt standard analysis
+            attemptAggregate(objects, headers, true);
         } else {
-            // XLS / XLSX
+            // xlsx/xls
             const arrayBuffer = await selectedFile.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const ws = workbook.Sheets[sheetName];
-            // convert to JSON with header row -> keys will be column headers
-            rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-            headers = rows[0] ? Object.keys(rows[0]) : [];
-            // If sheet_to_json returns arrays (rare with header:1), handle below
-        }
 
-        if (!rows || rows.length === 0) {
-            statusMsg.textContent = '';
-            errorMsg.textContent = 'No rows detected in file.';
-            return;
-        }
+            // get raw rows (header:1) to detect header index
+            const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            lastRawRows = rawRows;
+            const headerIndex = detectHeaderRow(rawRows);
+            lastHeaderRowIndex = headerIndex;
+            const headers = rawRows[headerIndex].map(h => String(h||'').trim());
+            lastHeaders = headers;
 
-        // If rows are arrays (e.g., sheet_to_json with header:1), normalize them into objects
-        if (Array.isArray(rows[0])) {
-            // treat first row as headers
-            const rawHeaders = rows[0].map(h => String(h||'').trim());
+            // build objects from rows after detected header
             const objects = [];
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
+            for (let i = headerIndex + 1; i < rawRows.length; i++) {
+                const row = rawRows[i];
+                if (!row) continue;
                 const obj = {};
-                for (let c = 0; c < rawHeaders.length; c++) {
-                    obj[rawHeaders[c] || `col${c}`] = row[c];
-                }
-                objects.push(obj);
+                for (let c = 0; c < headers.length; c++) obj[headers[c] || `col${c}`] = row[c];
+                const allEmpty = Object.values(obj).every(v => v === undefined || v === null || String(v).trim() === '');
+                if (!allEmpty) objects.push(obj);
             }
-            rows = objects;
-            headers = rawHeaders;
+
+            attemptAggregate(objects, headers, true);
         }
-
-        // Normalize header list
-        headers = headers.map(h => h === undefined || h === null ? '' : String(h));
-
-        // Detect Date, Debit, Credit columns (case-insensitive)
-        const dateKey = findHeaderKey(headers, ['date','transaction date','txn date','value date','posted','posting date','trans date','date posted']);
-        const debitKey = findHeaderKey(headers, ['debit','dr','withdrawal','debit amount','debits','withdrawals']);
-        const creditKey = findHeaderKey(headers, ['credit','cr','deposit','credit amount','credits','deposits']);
-
-        if (!dateKey || !debitKey || !creditKey) {
-            statusMsg.textContent = '';
-            errorMsg.textContent = 'Could not detect Date, Debit or Credit columns automatically. Ensure your file has separate Debit and Credit columns. Detected headers: ' + headers.join(', ');
-            return;
-        }
-
-        statusMsg.textContent = 'Aggregating by month...';
-
-        const results = {}; // { 'YYYY-MM': { debit: number, credit: number, count: number } }
-
-        for (const r of rows) {
-            // defensively get values (some keys may be trimmed differently)
-            const dateVal = r[dateKey];
-            const debitVal = r[debitKey];
-            const creditVal = r[creditKey];
-
-            const mkey = monthKeyFromDate(dateVal);
-            if (!mkey) continue;
-
-            const dnum = parseNumber(debitVal);
-            const cnum = parseNumber(creditVal);
-
-            if (!results[mkey]) results[mkey] = { debit: 0, credit: 0, count: 0 };
-            results[mkey].debit += dnum;
-            results[mkey].credit += cnum;
-            results[mkey].count += 1;
-        }
-
-        const months = Object.keys(results).sort();
-        if (months.length === 0) {
-            statusMsg.textContent = '';
-            errorMsg.textContent = 'No valid dated transactions found.';
-            return;
-        }
-
-        // Build table: S/N | Month | Total Debit | Total Credit
-        let html = `<table>
-            <thead>
-                <tr><th>S/N</th><th>Month (YYYY-MM)</th><th>Total Debit</th><th>Total Credit</th></tr>
-            </thead>
-            <tbody>`;
-        let grandDebit = 0, grandCredit = 0;
-        const csvRows = [['Month','Total Debit','Total Credit']];
-
-        months.forEach((m, idx) => {
-            const td = Number(results[m].debit.toFixed(2));
-            const tc = Number(results[m].credit.toFixed(2));
-            grandDebit += td;
-            grandCredit += tc;
-            html += `<tr>
-                <td>${idx+1}</td>
-                <td>${m}</td>
-                <td>${td.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                <td>${tc.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-            </tr>`;
-            csvRows.push([m, td.toFixed(2), tc.toFixed(2)]);
-        });
-
-        html += `</tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="2">TOTAL</td>
-                    <td>${grandDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                    <td>${grandCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                </tr>
-            </tfoot>
-        </table>`;
-
-        document.getElementById('tableContainer').innerHTML = html;
-
-        // Prepare CSV download
-        const csvContent = csvRows.map(r => r.map(cell => {
-            const s = String(cell);
-            return /,/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-        }).join(',')).join('\n');
-
-        // revoke previous blob url if exists
-        if (lastCsvBlobUrl) URL.revokeObjectURL(lastCsvBlobUrl);
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        lastCsvBlobUrl = URL.createObjectURL(blob);
-
-        downloadBtn.disabled = false;
-        downloadBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = lastCsvBlobUrl;
-            a.download = 'monthly-sums.csv';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        };
-
-        statusMsg.textContent = 'Done — generated monthly totals for ' + months.length + ' month(s).';
     } catch (err) {
         console.error(err);
         statusMsg.textContent = '';
-        errorMsg.textContent = 'Processing error: ' + (err && err.message ? err.message : err);
+        errorMsg.textContent = 'Error reading file: ' + (err.message || err);
     }
+}
+
+/* ---------- attempt aggregation with auto-detect, fallback to manual mapping UI ---------- */
+function attemptAggregate(objects, headers, allowManual) {
+    statusMsg.textContent = 'Trying to auto-detect Date/Debit/Credit columns from headers...';
+
+    // Normalize headers for detection but preserve original header strings
+    const headerKeys = headers.slice(); // original header strings as seen in sheet
+    const lowerKeys = headerKeys.map(h => String(h||'').toLowerCase());
+
+    const dateKey = findHeaderKey(headerKeys, ['date','transaction date','txn date','value date','posted','posting date','trans date','date posted']);
+    const debitKey = findHeaderKey(headerKeys, ['debit','dr','withdrawal','debit amount','debits','withdrawals','amount']);
+    const creditKey = findHeaderKey(headerKeys, ['credit','cr','deposit','credit amount','credits','deposits','amount']);
+
+    // If 'amount' is detected, prefer separate debit/credit, so only treat amount as fallback
+    const ambiguousAmount = lowerKeys.some(k => k.includes('amount'));
+
+    if (dateKey && debitKey && creditKey && debitKey !== creditKey) {
+        // good — proceed
+        statusMsg.textContent = 'Auto-detected columns. Aggregating...';
+        aggregateAndRender(objects, dateKey, debitKey, creditKey);
+        return;
+    }
+
+    // If we didn't find both debit and credit but we detect 'amount' and Date and user insisted separate columns previously,
+    // we should still show manual mapping so user can choose real columns.
+    if (allowManual) {
+        statusMsg.textContent = '';
+        errorMsg.textContent = 'Auto-detection could not confidently find Date, Debit and Credit together. Please map them manually below (select which column is Date / Debit / Credit).';
+        showMappingUI(headerKeys, objects);
+        return;
+    }
+
+    statusMsg.textContent = '';
+    errorMsg.textContent = 'Could not detect Date/Debit/Credit and manual mapping not allowed.';
+}
+
+/* ---------- show mapping UI ---------- */
+function showMappingUI(headerKeys, objects) {
+    mappingArea.classList.remove('hidden');
+    headerListDiv.innerHTML = '<div style="margin-bottom:6px"><strong>Headers detected (sheet header row):</strong></div>';
+    const list = document.createElement('div');
+    list.style.display = 'flex';
+    list.style.flexWrap = 'wrap';
+    list.style.gap = '8px';
+    headerKeys.forEach(h => {
+        const pill = document.createElement('div');
+        pill.style.padding = '6px 8px';
+        pill.style.border = '1px solid #e5e7eb';
+        pill.style.borderRadius = '6px';
+        pill.style.background = '#fff';
+        pill.textContent = h === '' ? '(empty)' : h;
+        list.appendChild(pill);
+    });
+    headerListDiv.appendChild(list);
+
+    // populate selects
+    const opts = ['<option value="">-- select column --</option>'].concat(headerKeys.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h||'(empty)')}</option>`)).join('');
+    mapDate.innerHTML = opts;
+    mapDebit.innerHTML = opts;
+    mapCredit.innerHTML = opts;
+
+    // try to set sensible defaults in mapping selects
+    const tryDate = headerKeys.find(h => /date|txn|value|posted/i.test(h));
+    const tryDebit = headerKeys.find(h => /debit|dr|withdrawal|debit amount/i.test(h));
+    const tryCredit = headerKeys.find(h => /credit|cr|deposit|credit amount/i.test(h));
+    if (tryDate) mapDate.value = tryDate;
+    if (tryDebit) mapDebit.value = tryDebit;
+    if (tryCredit) mapCredit.value = tryCredit;
+
+    // show preview of first 6 data rows to help mapping
+    previewSample.classList.remove('hidden');
+    previewSample.innerHTML = '<div class="meta-row">Sample rows (first 6 data rows after header):</div>';
+    const sampleRows = objects.slice(0,6);
+    if (sampleRows.length === 0) previewSample.innerHTML += '<div>(no data rows)</div>';
+    else {
+        const sampleTable = document.createElement('table');
+        sampleTable.style.width = '100%';
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        headerKeys.forEach(h => { const th = document.createElement('th'); th.textContent = h || '(empty)'; trh.appendChild(th); });
+        thead.appendChild(trh);
+        sampleTable.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        sampleRows.forEach(r => {
+            const tr = document.createElement('tr');
+            headerKeys.forEach(h => {
+                const td = document.createElement('td');
+                td.textContent = r[h] !== undefined ? String(r[h]) : '';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        sampleTable.appendChild(tbody);
+        previewSample.appendChild(sampleTable);
+    }
+}
+
+/* ---------- process using mapping chosen by user ---------- */
+function processWithMapping() {
+    const dKey = mapDate.value;
+    const debitKey = mapDebit.value;
+    const creditKey = mapCredit.value;
+    errorMsg.textContent = '';
+    if (!dKey || !debitKey || !creditKey) {
+        errorMsg.textContent = 'Please select all three columns (Date, Debit, Credit).';
+        return;
+    }
+    // rebuild objects from lastRawRows using lastHeaderRowIndex and lastHeaders
+    const headerIndex = lastHeaderRowIndex === null ? 0 : lastHeaderRowIndex;
+    const headers = lastHeaders || [];
+    const objects = [];
+    for (let i = headerIndex + 1; i < lastRawRows.length; i++) {
+        const row = lastRawRows[i];
+        if (!row) continue;
+        const obj = {};
+        for (let c = 0; c < headers.length; c++) obj[headers[c] || `col${c}`] = row[c];
+        const allEmpty = Object.values(obj).every(v => v === undefined || v === null || String(v).trim() === '');
+        if (!allEmpty) objects.push(obj);
+    }
+    statusMsg.textContent = 'Processing using your mapping...';
+    mappingArea.classList.add('hidden');
+    previewSample.classList.add('hidden');
+    aggregateAndRender(objects, dKey, debitKey, creditKey);
+}
+
+/* ---------- aggregation + render ---------- */
+function aggregateAndRender(objects, dateKey, debitKey, creditKey) {
+    const results = {};
+    for (const r of objects) {
+        const dateVal = r[dateKey];
+        const debitVal = r[debitKey];
+        const creditVal = r[creditKey];
+        const mkey = monthKeyFromDate(dateVal);
+        if (!mkey) continue;
+        const dnum = parseNumber(debitVal);
+        const cnum = parseNumber(creditVal);
+        if (!results[mkey]) results[mkey] = { debit: 0, credit: 0, count: 0 };
+        results[mkey].debit += dnum;
+        results[mkey].credit += cnum;
+        results[mkey].count += 1;
+    }
+
+    const months = Object.keys(results).sort();
+    if (months.length === 0) {
+        statusMsg.textContent = '';
+        errorMsg.textContent = 'No valid dated transactions found after processing.';
+        return;
+    }
+
+    // Build table
+    let html = `<table>
+        <thead><tr><th>S/N</th><th>Month (YYYY-MM)</th><th>Total Debit</th><th>Total Credit</th></tr></thead><tbody>`;
+    let grandDebit = 0, grandCredit = 0;
+    const csvRows = [['Month','Total Debit','Total Credit']];
+
+    months.forEach((m, idx) => {
+        const td = Number(results[m].debit.toFixed(2));
+        const tc = Number(results[m].credit.toFixed(2));
+        grandDebit += td;
+        grandCredit += tc;
+        html += `<tr>
+            <td>${idx+1}</td>
+            <td>${m}</td>
+            <td>${td.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>${tc.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        </tr>`;
+        csvRows.push([m, td.toFixed(2), tc.toFixed(2)]);
+    });
+
+    html += `</tbody>
+        <tfoot>
+            <tr><td colspan="2">TOTAL</td><td>${grandDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>${grandCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>
+        </tfoot>
+    </table>`;
+
+    document.getElementById('tableContainer').innerHTML = html;
+
+    // prepare CSV
+    const csvContent = csvRows.map(r => r.map(cell => {
+        const s = String(cell);
+        return /,/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(',')).join('\n');
+
+    if (lastCsvBlobUrl) URL.revokeObjectURL(lastCsvBlobUrl);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    lastCsvBlobUrl = URL.createObjectURL(blob);
+    downloadBtn.disabled = false;
+    downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = lastCsvBlobUrl;
+        a.download = 'monthly-sums.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
+
+    statusMsg.textContent = `Done — generated monthly totals for ${months.length} month(s).`;
+}
+
+/* ---------- small utility ---------- */
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 
