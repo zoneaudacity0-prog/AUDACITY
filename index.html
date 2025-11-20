@@ -4,25 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bank Statement Dashboard</title>
+
+<!-- Dependencies -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
 <style>
     body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f8; }
     .dashboard { display: flex; min-height: 100vh; }
     .sidebar { width: 250px; background: #1f2937; color: white; display: flex; flex-direction: column; }
-    .sidebar h2 { text-align: center; padding: 20px 0; font-weight: 600; border-bottom: 1px solid #374151; }
+    .sidebar h2 { text-align: center; padding: 20px 0; font-weight: 600; border-bottom: 1px solid #374151; margin: 0; }
     .nav { flex: 1; display: flex; flex-direction: column; }
     .nav button { padding: 15px 20px; border: none; background: none; color: white; text-align: left; cursor: pointer; font-size: 16px; transition: 0.2s; }
     .nav button:hover { background: #374151; }
     .content { flex: 1; padding: 20px; overflow-x: auto; }
     .hidden { display: none; }
-    .upload-area { border: 2px dashed #9ca3af; padding: 30px; text-align: center; background: #fff; border-radius: 8px; cursor: pointer; }
+    .upload-area { border: 2px dashed #9ca3af; padding: 30px; text-align: center; background: #fff; border-radius: 8px; cursor: pointer; position: relative; }
     .upload-area.dragover { background: #e5e7eb; }
+    .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; border-radius: 8px; overflow: hidden; }
     th, td { padding: 12px 15px; border-bottom: 1px solid #e5e7eb; text-align: center; }
     th { background: #1f2937; color: white; }
     tfoot td { font-weight: bold; background: #f3f4f6; }
     button.analyze { margin-top: 20px; padding: 12px 20px; font-size: 16px; cursor: pointer; background: #3b82f6; color: white; border: none; border-radius: 5px; transition: 0.2s; }
     button.analyze:hover { background: #2563eb; }
+    .controls { display:flex; gap:10px; align-items:center; margin-top:12px; }
+    .small { font-size:13px; color:#475569; margin-top:8px; }
+    .status { margin-top:10px; font-size:14px; color:#0f172a; }
+    .error { margin-top:10px; color:#b91c1c; }
+    .download-btn { margin-left: 8px; background:#059669; color:#fff; border:none; padding:10px 12px; border-radius:6px; cursor:pointer; }
+    .download-btn:disabled { opacity:0.5; cursor:default; }
 </style>
 </head>
 <body>
@@ -36,17 +47,30 @@
             <button onclick="showModule('moduleC')">C: Report Generator</button>
         </div>
     </div>
+
     <div class="content">
         <!-- Module A -->
         <div id="moduleA">
             <h2>Upload Bank Statement (Excel/CSV)</h2>
+
             <div class="upload-area" id="uploadArea">
-                Drag & Drop or Click to Upload
-                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                <div style="pointer-events:none">
+                    Drag & Drop or Click to Upload<br><small class="small">Accepts: .xlsx .xls .csv</small>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
             </div>
-            <button class="analyze" onclick="analyzeFile()">Analyze Statement</button>
+
+            <div class="controls">
+                <button class="analyze" onclick="analyzeFile()">Analyze Statement</button>
+                <button id="downloadMonthly" class="download-btn" disabled>Download monthly CSV</button>
+            </div>
+
+            <div class="status" id="statusMsg"></div>
+            <div class="error" id="errorMsg"></div>
+
             <div id="tableContainer"></div>
         </div>
+
         <!-- Module B -->
         <div id="moduleB" class="hidden"><h2>AI Arrears Interpretation (Coming Soon)</h2></div>
         <!-- Module C -->
@@ -55,28 +79,7 @@
 </div>
 
 <script>
-let selectedFile;
-
-const uploadArea = document.getElementById('uploadArea');
-const fileInput = document.getElementById('fileInput');
-
-uploadArea.addEventListener('click', () => fileInput.click());
-
-uploadArea.addEventListener('dragover', e => {
-    e.preventDefault();
-    uploadArea.classList.add('dragover');
-});
-
-uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-
-uploadArea.addEventListener('drop', e => {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
-    selectedFile = e.dataTransfer.files[0];
-});
-
-fileInput.addEventListener('change', e => selectedFile = e.target.files[0]);
-
+/* ---------- UI control ---------- */
 function showModule(moduleId){
     document.getElementById('moduleA').classList.add('hidden');
     document.getElementById('moduleB').classList.add('hidden');
@@ -84,91 +87,268 @@ function showModule(moduleId){
     document.getElementById(moduleId).classList.remove('hidden');
 }
 
-function analyzeFile(){
-    if(!selectedFile){
-        alert("Please upload a file first!");
+/* ---------- File upload behavior ---------- */
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const downloadBtn = document.getElementById('downloadMonthly');
+const statusMsg = document.getElementById('statusMsg');
+const errorMsg = document.getElementById('errorMsg');
+let selectedFile = null;
+let lastCsvBlobUrl = null;
+
+uploadArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) {
+        selectedFile = f;
+        statusMsg.textContent = `Selected: ${f.name}`;
+        errorMsg.textContent = '';
+    }
+});
+fileInput.addEventListener('change', e => {
+    selectedFile = e.target.files[0];
+    if (selectedFile) {
+        statusMsg.textContent = `Selected: ${selectedFile.name}`;
+        errorMsg.textContent = '';
+    }
+});
+
+/* ---------- Helpers ---------- */
+function parseNumber(val) {
+    if (val === null || val === undefined) return 0;
+    // handle numbers already
+    if (typeof val === 'number') return val;
+    let s = String(val).trim();
+    if (s === '') return 0;
+    // parentheses means negative e.g. (1,200)
+    const paren = /^\((.*)\)$/.exec(s);
+    if (paren) s = '-' + paren[1];
+    // Remove currency symbols and letters, keep digits, dot and minus
+    s = s.replace(/[^\d\.\-]/g, '');
+    // if more than one dot (bad), remove thousand dots (common in some formatting) - naive but helps
+    const dots = (s.match(/\./g) || []).length;
+    if (dots > 1) {
+        // remove all dots except last
+        const lastDot = s.lastIndexOf('.');
+        s = s.slice(0, lastDot).replace(/\./g,'') + s.slice(lastDot);
+    }
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+}
+
+function monthKeyFromDate(d) {
+    if (!d && d !== 0) return null;
+    // If it's already a Date object:
+    if (d instanceof Date && !isNaN(d)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2,'0');
+        return `${y}-${m}`;
+    }
+    // Otherwise try string parsing
+    let s = String(d).trim();
+    if (s === '') return null;
+    // remove time part if present
+    s = s.replace(/T.*$/,'').replace(/\s+\d{1,2}:\d{2}.*$/,'');
+    // Try Date.parse (ISO, mm/dd/yyyy, yyyy-mm-dd)
+    const parsed = Date.parse(s);
+    if (!isNaN(parsed)) {
+        const dt = new Date(parsed);
+        return monthKeyFromDate(dt);
+    }
+    // Try splitting common delimiters (d/m/y or yyyy-mm-dd)
+    const parts = s.split(/[\/\-\.\s]/).filter(Boolean);
+    if (parts.length >= 3) {
+        let day = parts[0], month = parts[1], year = parts[2];
+        // if leading year (yyyy-mm-dd)
+        if (day.length === 4) {
+            year = parts[0]; month = parts[1]; day = parts[2];
+        }
+        if (year.length === 2) year = '20' + year;
+        if (!/^\d+$/.test(year) || !/^\d+$/.test(month)) return null;
+        return `${year}-${String(Number(month)).padStart(2,'0')}`;
+    }
+    return null;
+}
+
+function findHeaderKey(headers, patterns) {
+    if (!headers || headers.length === 0) return null;
+    for (const h of headers) {
+        if (h === undefined || h === null) continue;
+        const lower = String(h).toLowerCase();
+        for (const p of patterns) {
+            if (lower.includes(p)) return h;
+        }
+    }
+    return null;
+}
+
+/* ---------- Main analyze / processing ---------- */
+async function analyzeFile() {
+    errorMsg.textContent = '';
+    statusMsg.textContent = '';
+    downloadBtn.disabled = true;
+    if (!selectedFile) {
+        errorMsg.textContent = 'Please upload a file first!';
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = function(e){
-        let data = e.target.result;
-        let workbook = XLSX.read(data, {type: 'binary'});
-        let firstSheet = workbook.SheetNames[0];
-        let sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], {header:1});
+    statusMsg.textContent = 'Reading file...';
+    try {
+        const name = selectedFile.name.toLowerCase();
+        let rows = [];
+        let headers = [];
 
-        processBankData(sheetData);
-    };
-    reader.readAsBinaryString(selectedFile);
-}
+        if (name.endsWith('.csv') || name.endsWith('.txt')) {
+            const text = await selectedFile.text();
+            const parsed = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
+            rows = parsed.data;
+            headers = parsed.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
+        } else {
+            // XLS / XLSX
+            const arrayBuffer = await selectedFile.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const ws = workbook.Sheets[sheetName];
+            // convert to JSON with header row -> keys will be column headers
+            rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+            headers = rows[0] ? Object.keys(rows[0]) : [];
+            // If sheet_to_json returns arrays (rare with header:1), handle below
+        }
 
-function processBankData(sheetData){
-    // Find column indices for Month, Debit, Credit
-    let header = sheetData[0].map(h => h.toString().toLowerCase());
-    let monthIdx = header.findIndex(h => h.includes('month'));
-    let debitIdx = header.findIndex(h => h.includes('debit'));
-    let creditIdx = header.findIndex(h => h.includes('credit'));
+        if (!rows || rows.length === 0) {
+            statusMsg.textContent = '';
+            errorMsg.textContent = 'No rows detected in file.';
+            return;
+        }
 
-    if(monthIdx === -1 || debitIdx === -1 || creditIdx === -1){
-        alert("Columns 'Month', 'Debit', or 'Credit' not found!");
-        return;
+        // If rows are arrays (e.g., sheet_to_json with header:1), normalize them into objects
+        if (Array.isArray(rows[0])) {
+            // treat first row as headers
+            const rawHeaders = rows[0].map(h => String(h||'').trim());
+            const objects = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const obj = {};
+                for (let c = 0; c < rawHeaders.length; c++) {
+                    obj[rawHeaders[c] || `col${c}`] = row[c];
+                }
+                objects.push(obj);
+            }
+            rows = objects;
+            headers = rawHeaders;
+        }
+
+        // Normalize header list
+        headers = headers.map(h => h === undefined || h === null ? '' : String(h));
+
+        // Detect Date, Debit, Credit columns (case-insensitive)
+        const dateKey = findHeaderKey(headers, ['date','transaction date','txn date','value date','posted','posting date','trans date','date posted']);
+        const debitKey = findHeaderKey(headers, ['debit','dr','withdrawal','debit amount','debits','withdrawals']);
+        const creditKey = findHeaderKey(headers, ['credit','cr','deposit','credit amount','credits','deposits']);
+
+        if (!dateKey || !debitKey || !creditKey) {
+            statusMsg.textContent = '';
+            errorMsg.textContent = 'Could not detect Date, Debit or Credit columns automatically. Ensure your file has separate Debit and Credit columns. Detected headers: ' + headers.join(', ');
+            return;
+        }
+
+        statusMsg.textContent = 'Aggregating by month...';
+
+        const results = {}; // { 'YYYY-MM': { debit: number, credit: number, count: number } }
+
+        for (const r of rows) {
+            // defensively get values (some keys may be trimmed differently)
+            const dateVal = r[dateKey];
+            const debitVal = r[debitKey];
+            const creditVal = r[creditKey];
+
+            const mkey = monthKeyFromDate(dateVal);
+            if (!mkey) continue;
+
+            const dnum = parseNumber(debitVal);
+            const cnum = parseNumber(creditVal);
+
+            if (!results[mkey]) results[mkey] = { debit: 0, credit: 0, count: 0 };
+            results[mkey].debit += dnum;
+            results[mkey].credit += cnum;
+            results[mkey].count += 1;
+        }
+
+        const months = Object.keys(results).sort();
+        if (months.length === 0) {
+            statusMsg.textContent = '';
+            errorMsg.textContent = 'No valid dated transactions found.';
+            return;
+        }
+
+        // Build table: S/N | Month | Total Debit | Total Credit
+        let html = `<table>
+            <thead>
+                <tr><th>S/N</th><th>Month (YYYY-MM)</th><th>Total Debit</th><th>Total Credit</th></tr>
+            </thead>
+            <tbody>`;
+        let grandDebit = 0, grandCredit = 0;
+        const csvRows = [['Month','Total Debit','Total Credit']];
+
+        months.forEach((m, idx) => {
+            const td = Number(results[m].debit.toFixed(2));
+            const tc = Number(results[m].credit.toFixed(2));
+            grandDebit += td;
+            grandCredit += tc;
+            html += `<tr>
+                <td>${idx+1}</td>
+                <td>${m}</td>
+                <td>${td.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                <td>${tc.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            </tr>`;
+            csvRows.push([m, td.toFixed(2), tc.toFixed(2)]);
+        });
+
+        html += `</tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2">TOTAL</td>
+                    <td>${grandDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                    <td>${grandCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                </tr>
+            </tfoot>
+        </table>`;
+
+        document.getElementById('tableContainer').innerHTML = html;
+
+        // Prepare CSV download
+        const csvContent = csvRows.map(r => r.map(cell => {
+            const s = String(cell);
+            return /,/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+        }).join(',')).join('\n');
+
+        // revoke previous blob url if exists
+        if (lastCsvBlobUrl) URL.revokeObjectURL(lastCsvBlobUrl);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        lastCsvBlobUrl = URL.createObjectURL(blob);
+
+        downloadBtn.disabled = false;
+        downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = lastCsvBlobUrl;
+            a.download = 'monthly-sums.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+
+        statusMsg.textContent = 'Done — generated monthly totals for ' + months.length + ' month(s).';
+    } catch (err) {
+        console.error(err);
+        statusMsg.textContent = '';
+        errorMsg.textContent = 'Processing error: ' + (err && err.message ? err.message : err);
     }
-
-    let tableHTML = `<table>
-        <thead>
-            <tr>
-                <th>S/N</th>
-                <th>Month</th>
-                <th>Debit</th>
-                <th>Credit</th>
-            </tr>
-        </thead>
-        <tbody>`;
-
-    let totalDebit = 0, totalCredit = 0;
-
-    sheetData.slice(1).forEach((row, idx) => {
-        let month = row[monthIdx] || '';
-        let debit = parseNumber(row[debitIdx]);
-        let credit = parseNumber(row[creditIdx]);
-        totalDebit += debit;
-        totalCredit += credit;
-
-        tableHTML += `<tr>
-            <td>${idx+1}</td>
-            <td>${month}</td>
-            <td>${formatNumber(debit)}</td>
-            <td>${formatNumber(credit)}</td>
-        </tr>`;
-    });
-
-    let rowCount = sheetData.length - 1;
-
-    tableHTML += `</tbody>
-        <tfoot>
-            <tr>
-                <td colspan="2">Total</td>
-                <td>${formatNumber(totalDebit)}</td>
-                <td>${formatNumber(totalCredit)}</td>
-            </tr>
-            <tr>
-                <td colspan="2">Average</td>
-                <td>${formatNumber(totalDebit/rowCount)}</td>
-                <td>${formatNumber(totalCredit/rowCount)}</td>
-            </tr>
-        </tfoot>
-    </table>`;
-
-    document.getElementById('tableContainer').innerHTML = tableHTML;
-}
-
-function parseNumber(val){
-    if(!val) return 0;
-    return Number(val.toString().replace(/,/g,'').replace(/\s/g,''));
-}
-
-function formatNumber(num){
-    return num.toLocaleString('en-US');
 }
 </script>
 
