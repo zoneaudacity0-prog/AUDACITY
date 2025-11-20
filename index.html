@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AUDACITY ZONE — Bank Statement Analyzer</title>
+  <title>AUDACITY ZONE — Bank Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.140/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #f7f8fa; color: #1a1a1a; line-height: 1.6; }
@@ -34,9 +38,13 @@
     .upload-section button:hover { background: #0956c1; }
 
     /* Summary Section */
-    .summary { margin-top: 40px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 800px; margin-left: auto; margin-right: auto; text-align: left; }
+    .summary { margin-top: 40px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 900px; margin-left: auto; margin-right: auto; text-align: left; }
     .summary h3 { color: #0d6efd; margin-bottom: 15px; }
     .summary pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow-x: auto; }
+
+    /* Dashboard Charts */
+    .charts { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; margin-top: 30px; }
+    .chart-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 400px; }
 
     /* Footer */
     footer { background: #1a1a1a; color: #fff; padding: 40px; text-align: center; }
@@ -46,6 +54,7 @@
       nav { flex-direction: column; gap: 15px; }
       .hero h1 { font-size: 2.2rem; }
       .upload-section { padding: 40px 20px; }
+      .charts { flex-direction: column; align-items: center; }
     }
   </style>
 </head>
@@ -56,7 +65,7 @@
     <div class="logo">AUDACITY ZONE</div>
     <ul>
       <li><a href="#upload">Upload</a></li>
-      <li><a href="#summary">Summary</a></li>
+      <li><a href="#summary">Dashboard</a></li>
       <li><a href="#contact">Contact</a></li>
     </ul>
     <a href="#" class="btn">Get Started</a>
@@ -64,8 +73,8 @@
 
   <!-- Hero Section -->
   <section class="hero">
-    <h1>Upload Your Bank Statement for Instant Analysis</h1>
-    <p>Support for Excel, CSV, and PDF formats. Name your statement, click Analyze, and see your summary in seconds!</p>
+    <h1>Upload Your Bank Statement for Instant Insights</h1>
+    <p>Excel, CSV, or PDF. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
     <a href="#upload" class="hero-btn">Start Now</a>
   </section>
 
@@ -79,8 +88,17 @@
     <button onclick="analyzeStatement()">Analyze</button>
 
     <div class="summary" id="summary">
-      <h3>Bank Statement Summary & Insights</h3>
+      <h3>Summary & Insights</h3>
       <pre id="output">No statement analyzed yet.</pre>
+
+      <div class="charts">
+        <div class="chart-card">
+          <canvas id="barChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -92,6 +110,8 @@
 
   <!-- JavaScript -->
   <script>
+    let barChartInstance, pieChartInstance;
+
     async function analyzeStatement() {
       const fileInput = document.getElementById('fileInput');
       const statementName = document.getElementById('statementName').value.trim();
@@ -101,7 +121,6 @@
         output.textContent = "Please select a file to analyze.";
         return;
       }
-
       if (!statementName) {
         output.textContent = "Please enter a name for your statement.";
         return;
@@ -110,6 +129,8 @@
       const file = fileInput.files[0];
       output.textContent = `Analyzing "${statementName}"...\n\n`;
 
+      let transactions = [];
+
       try {
         if (file.name.endsWith(".csv") || file.name.endsWith(".xls") || file.name.endsWith(".xlsx")) {
           const data = await file.arrayBuffer();
@@ -117,16 +138,32 @@
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          transactions = json;
+
           output.textContent += `First 5 rows of ${json.length} total rows:\n`;
           output.textContent += JSON.stringify(json.slice(0,5), null, 2);
 
-          // Optional: Generate simple insights (total debit/credit if columns exist)
+          // Summaries
           let debitTotal = 0, creditTotal = 0;
+          const monthlySummary = {};
+
           json.forEach(row => {
+            let date = row.Date ? new Date(row.Date) : null;
             if (row.Debit) debitTotal += parseFloat(row.Debit) || 0;
             if (row.Credit) creditTotal += parseFloat(row.Credit) || 0;
+
+            if (date) {
+              const monthKey = `${date.getFullYear()}-${("0"+(date.getMonth()+1)).slice(-2)}`;
+              if (!monthlySummary[monthKey]) monthlySummary[monthKey] = { Debit:0, Credit:0 };
+              monthlySummary[monthKey].Debit += parseFloat(row.Debit) || 0;
+              monthlySummary[monthKey].Credit += parseFloat(row.Credit) || 0;
+            }
           });
-          output.textContent += `\n\nTotal Debit: ${debitTotal}\nTotal Credit: ${creditTotal}\n`;
+
+          output.textContent += `\nTotal Debit: ${debitTotal}\nTotal Credit: ${creditTotal}\n`;
+          output.textContent += `\nMonthly Summary:\n${JSON.stringify(monthlySummary, null, 2)}\n`;
+
+          renderCharts(monthlySummary);
 
         } else if (file.name.endsWith(".pdf")) {
           const pdfData = await file.arrayBuffer();
@@ -146,6 +183,37 @@
       } catch (err) {
         output.textContent += `Error analyzing file: ${err.message}`;
       }
+    }
+
+    function renderCharts(monthlySummary) {
+      const months = Object.keys(monthlySummary).sort();
+      const debitData = months.map(m => monthlySummary[m].Debit);
+      const creditData = months.map(m => monthlySummary[m].Credit);
+
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+      barChartInstance = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [
+            { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
+            { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
+          ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+      });
+
+      const pieCtx = document.getElementById('pieChart').getContext('2d');
+      if (pieChartInstance) pieChartInstance.destroy();
+      pieChartInstance = new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Total Debit', 'Total Credit'],
+          datasets: [{ data: [debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)], backgroundColor: ['#ff6384','#36a2eb'] }]
+        },
+        options: { responsive: true }
+      });
     }
   </script>
 
