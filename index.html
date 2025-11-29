@@ -1,164 +1,128 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AUDACITY ZONE — Financial AI Dashboard (Client-side)</title>
+  <title>AUDACITY ZONE — Financial Agent (Frontend)</title>
 
-  <!-- External libs (CDNs) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.140/pdf.min.js" integrity="" crossorigin="anonymous"></script>
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.140/pdf.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root{
-      --blue: #0d6efd;
-      --muted: #6b7280;
-      --bg: #f7f8fb;
-      --card: #ffffff;
-      --glass: rgba(255,255,255,0.6);
-      --radius: 12px;
-      --max-width: 1100px;
+      --blue:#0d6efd; --muted:#6b7280; --card:#fff; --bg:#f5f8ff;
+      --radius:12px; --container:1150px;
     }
-    * { box-sizing: border-box; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-    body { margin: 0; background: linear-gradient(180deg,#f7f8fb 0%, #eef3ff 100%); color: #111827; -webkit-font-smoothing:antialiased; }
-    .container { max-width: var(--max-width); margin: 28px auto; padding: 20px; }
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    body{margin:0;background:linear-gradient(180deg,#f7fbff,#eef6ff);color:#0b1220;-webkit-font-smoothing:antialiased}
+    .wrap{max-width:var(--container);margin:22px auto;padding:18px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{background:var(--blue);color:#fff;padding:10px;border-radius:10px;font-weight:700}
+    h1{font-size:1.05rem;margin:0}
+    .muted{color:var(--muted);font-size:0.95rem}
 
-    /* Header / Nav */
-    header{ display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
-    .brand { display:flex; gap:12px; align-items:center; }
-    .logo { background:var(--blue); color:#fff; padding:10px 14px; border-radius:10px; font-weight:700; font-size:1rem; letter-spacing:0.4px; }
-    .title { font-weight:700; font-size:1.1rem; color:#0f172a }
-    nav { display:flex; gap:12px; align-items:center; }
-    .nav-link { color:var(--muted); font-weight:600; text-decoration:none; padding:8px 12px; border-radius:8px; }
-    .nav-link:hover{ background:rgba(13,110,253,0.08); color:var(--blue); }
+    /* layout */
+    .grid{display:grid;grid-template-columns: 1fr 420px;gap:18px;align-items:start}
+    .panel{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 30px rgba(8,18,46,0.06)}
+    .full{grid-column:1/-1}
 
-    /* Layout */
-    .grid { display:grid; grid-template-columns: 1fr 420px; gap:20px; align-items:start; }
-    .panel { background:var(--card); border-radius:var(--radius); padding:18px; box-shadow: 0 8px 24px rgba(12,16,28,0.06); }
-    .full { grid-column: 1 / -1; }
+    /* controls */
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input[type=file]{padding:6px}
+    input[type=text],select,button{padding:10px;border-radius:10px;border:1px solid #e6eefc}
+    button{background:var(--blue);color:#fff;border:0;cursor:pointer;font-weight:700}
+    .secondary{background:#eef6ff;color:var(--blue);border:1px solid rgba(13,110,253,0.08)}
 
-    /* Upload area */
-    .upload { display:flex; flex-direction:column; gap:12px; }
-    .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    input[type="file"] { padding:10px; }
-    input[type="text"], select { padding:10px; border-radius:8px; border:1px solid #e6e9ef; min-width:200px; }
-    button { background:var(--blue); color:#fff; border:0; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer; }
-    button.secondary { background:#eef2ff; color:var(--blue); font-weight:700; border:1px solid rgba(13,110,253,0.08); }
-    .muted { color:var(--muted); font-size:0.95rem; }
+    /* mapping & preview */
+    .mapping{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    select{min-width:160px}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+    th,td{padding:8px;border-bottom:1px solid #f1f6fb;text-align:left}
+    .preview{max-height:260px;overflow:auto;border-radius:10px;padding:6px;border:1px solid #eef6ff}
 
-    /* Preview table */
-    table { width:100%; border-collapse:collapse; font-size:0.95rem; }
-    th, td { padding:8px 10px; border-bottom: 1px solid #f1f5f9; text-align:left; }
-    th { font-weight:700; color:#0f172a; background:linear-gradient(90deg,#ffffff,#f8fbff); position:sticky; top:0; }
-    .preview-wrap { max-height:240px; overflow:auto; border-radius:8px; border:1px solid #eef2ff; }
+    /* charts */
+    .stats{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+    .stat{flex:1 1 120px;padding:10px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfdff);text-align:center}
+    .stat h4{margin:0;font-size:12px;color:var(--muted)}
+    .stat p{margin:6px 0 0 0;font-weight:800;font-size:18px}
 
-    /* Summary & charts */
-    .summary-grid { display:flex; gap:12px; flex-wrap:wrap; }
-    .stat { flex:1 1 140px; padding:12px; border-radius:10px; background:linear-gradient(180deg,#ffffff,#fbfdff); box-shadow:0 6px 18px rgba(12,16,28,0.04); }
-    .stat h4 { margin:0; font-size:0.9rem; color:var(--muted); font-weight:600; }
-    .stat p { margin-top:6px; font-weight:800; font-size:1.15rem; color:#0b1220; }
+    /* chat */
+    .chat{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+    .messages{max-height:260px;overflow:auto;padding:8px;border-radius:8px;background:#f8fbff;border:1px solid #eef6ff}
+    .msg{padding:8px;border-radius:8px;margin-bottom:8px}
+    .msg.user{background:#e8f0ff;align-self:flex-end}
+    .msg.bot{background:#fff}
 
-    /* small helpers */
-    .row { display:flex; gap:10px; align-items:center; }
-    .col { display:flex; flex-direction:column; gap:6px; }
-    .chip { padding:6px 8px; background:#f1f5f9; border-radius:999px; font-weight:700; color:#334155; }
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
 
-    footer { text-align:center; margin-top:22px; color:var(--muted); font-size:0.9rem; }
-
-    /* responsive */
-    @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr; }
-      .panel { padding:14px; }
-      .brand .title { display:none; }
-    }
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.brand h1{display:none}}
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="wrap">
     <header>
       <div class="brand">
         <div class="logo">AZ</div>
         <div>
-          <div class="title">AUDACITY ZONE</div>
-          <div class="muted" style="font-weight:600; font-size:0.9rem;">Financial analysis — client-side demo</div>
+          <h1>AUDACITY ZONE — Financial Agent (Frontend)</h1>
+          <div class="muted">Client UI for Option B — requires backend (upload, OCR, LLM)</div>
         </div>
       </div>
-      <nav>
-        <a class="nav-link" href="#upload">Upload</a>
-        <a class="nav-link" href="#dashboard">Dashboard</a>
-        <a class="nav-link" href="#contact">Contact</a>
-      </nav>
+
+      <div>
+        <span class="muted">Backend: <strong id="apiBaseLabel">/api</strong></span>
+      </div>
     </header>
 
-    <main class="grid" id="mainGrid">
-      <!-- Left: Upload & Preview -->
-      <section class="panel" id="uploadPanel">
-        <h3 style="margin-bottom:10px;">Upload Bank Statement</h3>
-        <div class="upload" id="upload">
-          <div class="controls">
-            <input id="fileInput" type="file" accept=".csv,.xls,.xlsx,.pdf" aria-label="Upload bank statement file" />
-            <input id="statementName" type="text" placeholder="Statement Name (e.g. Intergo Nov 2025)" />
-            <button id="analyzeBtn" title="Analyze file">Analyze</button>
-            <button id="exportBtn" class="secondary" title="Export results as JSON">Export JSON</button>
+    <main class="grid">
+      <!-- Left: Upload / mapping / preview -->
+      <section class="panel" id="leftPanel">
+        <h3>1) Upload statement (CSV / XLSX / PDF / Image)</h3>
+        <div class="controls">
+          <input id="fileInput" type="file" accept=".csv,.xls,.xlsx,.pdf,image/*" />
+          <input id="statementName" type="text" placeholder="Statement name (e.g. Intergo Nov 2025)" />
+          <button id="uploadBtn">Upload to backend</button>
+          <button id="localParseBtn" class="secondary" title="Parse locally without backend">Parse Locally</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center">
+          <div class="muted" id="status">Status: Idle</div>
+          <div>
+            <button id="startAnalysisBtn" class="secondary">Start Analysis</button>
           </div>
+        </div>
 
-          <div class="row" style="justify-content:space-between; margin-top:8px;">
-            <div class="muted">Client-side parsing — no files leave your browser.</div>
-            <div id="status" class="muted">Idle</div>
+        <div class="mapping" id="mappingArea" style="display:none">
+          <select id="mapDate"><option value="">Date column — auto</option></select>
+          <select id="mapDesc"><option value="">Description column — auto</option></select>
+          <select id="mapDebit"><option value="">Debit column — auto</option></select>
+          <select id="mapCredit"><option value="">Credit column — auto</option></select>
+          <button id="applyMapBtn" class="secondary">Apply mapping</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Preview (first rows):</div>
+          <div class="preview" id="previewBox">
+            <table id="previewTable"><thead id="previewHead"></thead><tbody id="previewBody"></tbody></table>
           </div>
+        </div>
 
-          <hr style="margin:12px 0; border:none; height:1px; background:#eef2ff;" />
-
-          <!-- Column mapping -->
-          <div id="mappingArea" style="display:none;">
-            <div class="muted">Column mapping (auto-detected — adjust if needed):</div>
-            <div class="row" style="margin-top:10px;">
-              <div class="col">
-                <label class="muted">Date column</label>
-                <select id="colDate"></select>
-              </div>
-              <div class="col">
-                <label class="muted">Description column</label>
-                <select id="colDesc"></select>
-              </div>
-              <div class="col">
-                <label class="muted">Debit column</label>
-                <select id="colDebit"></select>
-              </div>
-              <div class="col">
-                <label class="muted">Credit column</label>
-                <select id="colCredit"></select>
-              </div>
-            </div>
-
-            <div style="margin-top:10px;" class="row">
-              <button id="applyMappingBtn" class="secondary">Apply Mapping</button>
-              <div class="muted">Or let the parser auto-detect amounts.</div>
-            </div>
-          </div>
-
-          <!-- Preview -->
-          <div style="margin-top:14px;" id="previewSection">
-            <h4 style="margin:0 0 8px 0;">Preview</h4>
-            <div class="preview-wrap panel" style="padding:0;">
-              <table id="previewTable" aria-live="polite">
-                <thead id="previewHead"></thead>
-                <tbody id="previewBody"></tbody>
-              </table>
-            </div>
-          </div>
+        <div style="margin-top:12px">
+          <button id="downloadRawBtn" class="secondary">Download JSON (raw parsed)</button>
+          <button id="downloadProcessedBtn" class="secondary">Download CSV (processed)</button>
         </div>
       </section>
 
-      <!-- Right: Summary + Charts -->
-      <aside class="panel" id="analysisPanel">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="margin:0;">Summary & Charts</h3>
-          <div class="chip" id="rowsCount">Rows: 0</div>
+      <!-- Right: Summary / charts / chat -->
+      <aside class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0">2) Summary & Chat</h3>
+          <div class="muted" id="rowsInfo">Rows: 0</div>
         </div>
 
-        <div style="margin-top:12px;" class="summary-grid" id="stats">
+        <div class="stats" id="statsArea">
           <div class="stat">
             <h4>Total Debit</h4>
             <p id="totalDebit">—</p>
@@ -168,513 +132,543 @@
             <p id="totalCredit">—</p>
           </div>
           <div class="stat">
-            <h4>Net (Credit - Debit)</h4>
+            <h4>Net</h4>
             <p id="netAmount">—</p>
           </div>
         </div>
 
-        <div style="margin-top:14px;">
-          <canvas id="barChart" style="max-height:220px;"></canvas>
-        </div>
-        <div style="margin-top:12px;">
-          <canvas id="pieChart" style="max-height:220px;"></canvas>
+        <div style="margin-top:12px">
+          <canvas id="barChart" style="max-height:200px"></canvas>
         </div>
 
-        <div style="margin-top:12px;">
-          <button id="downloadCSV" class="secondary">Download Processed CSV</button>
-          <button id="clearBtn" style="margin-left:8px;" class="secondary">Clear</button>
-        </div>
-
-        <div style="margin-top:12px;" class="muted">
-          <strong>Note:</strong> For scanned PDF images you will need OCR (server-side or specialized client libs). This browser demo extracts text from PDFs that contain text (digital PDFs).
+        <div class="chat">
+          <div class="muted">Ask the AI about this analysis (requires backend LLM)</div>
+          <div class="messages" id="messages"></div>
+          <div style="display:flex;gap:8px">
+            <input id="userQuestion" type="text" placeholder="e.g. What are top 3 risks?" style="flex:1" />
+            <button id="askBtn">Ask</button>
+          </div>
         </div>
       </aside>
 
-      <!-- Full width: Diagnostics / Raw output -->
-      <section class="panel full" id="rawOutput">
-        <h3 style="margin-bottom:8px;">Raw Output & Diagnostics</h3>
-        <pre id="output" style="background:#fbfdff; padding:12px; border-radius:8px; max-height:220px; overflow:auto;">No file processed yet.</pre>
+      <!-- Full width: Analysis output -->
+      <section class="panel full">
+        <h3>3) Analysis output / logs</h3>
+        <pre id="log" style="max-height:360px;overflow:auto;background:#fbfdff;padding:12px;border-radius:8px;border:1px solid #eef6ff">No analysis yet.</pre>
       </section>
     </main>
 
-    <footer id="contact" style="margin-top:20px;">
-      &copy; <span id="year"></span> AUDACITY ZONE • Built for client-side demo — no data leaves your browser.
-    </footer>
+    <footer class="muted">© <span id="year"></span> AUDACITY ZONE • Frontend for Option B.</footer>
   </div>
 
   <script>
-    // Utilities
+    /**************************************************************************
+     * CONFIG
+     * Update API_BASE to match your backend host/port. Include protocol (http://).
+     * If your backend requires auth, set AUTH_HEADER with the token value (e.g., "Bearer xxxxx").
+     *
+     * Endpoints expected on the backend:
+     * POST   {API_BASE}/api/v1/upload            -> returns { upload_id, filename, ... }
+     * GET    {API_BASE}/api/v1/uploads/{id}/preview -> returns parsed preview and headers
+     * POST   {API_BASE}/api/v1/uploads/{id}/confirm -> body {upload_id, company_id, mapping?} returns {analysis_id}
+     * GET    {API_BASE}/api/v1/analyses/{analysis_id} -> returns analysis results when ready
+     * POST   {API_BASE}/api/v1/analyses/{analysis_id}/ask -> body {question} -> returns {answer}
+     *
+     * If you prefer different routes, update the fetch URLs below.
+     **************************************************************************/
+
+    const API_BASE = ''; // e.g. 'http://localhost:8000' ; leave empty to attempt local-only parsing fallback
+    const AUTH_HEADER = ''; // e.g. 'Bearer xxxxx' or '' if no auth required
+
+    document.getElementById('apiBaseLabel').textContent = API_BASE || '[local-only]';
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Short helpers
     const $ = (id) => document.getElementById(id);
-    const yearSpan = $('year'); yearSpan.textContent = new Date().getFullYear();
-
-    function safeParseNumber(v){
-      if (v === null || v === undefined || v === '') return 0;
-      // remove common currency symbols and thousands separators
-      let s = String(v).replace(/[,\s]/g,'').replace(/[^0-9.\-]/g,'');
-      if (s === '' || s === '-' || s === '.' ) return 0;
-      const n = parseFloat(s);
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function formatNumber(n){
-      return new Intl.NumberFormat(undefined, {maximumFractionDigits:2}).format(n);
-    }
+    const log = (txt) => {
+      const el = $('log');
+      el.textContent = `${new Date().toISOString()} — ${txt}\n\n` + el.textContent;
+      console.log(txt);
+    };
+    const status = (txt) => { $('status').textContent = 'Status: ' + txt; log(txt); };
 
     // State
-    let parsedRows = [];      // array of row objects
-    let headers = [];         // header order
-    let mapping = {date:null, desc:null, debit:null, credit:null};
-    let barChart, pieChart;
+    let uploaded = null;          // backend upload info {upload_id, filename}
+    let parsedRows = [];          // array of parsed rows (last preview)
+    let headers = [];             // header order
+    let mapping = {date:null,desc:null,debit:null,credit:null};
+    let analysisId = null;        // id returned by backend for analysis
+
+    // Chart
+    let barChart = null;
 
     // Elements
     const fileInput = $('fileInput');
-    const analyzeBtn = $('analyzeBtn');
+    const uploadBtn = $('uploadBtn');
+    const localParseBtn = $('localParseBtn');
     const previewHead = $('previewHead');
     const previewBody = $('previewBody');
-    const statusEl = $('status');
-    const previewSection = $('previewSection');
-    const mappingArea = $('mappingArea');
-    const colDate = $('colDate');
-    const colDesc = $('colDesc');
-    const colDebit = $('colDebit');
-    const colCredit = $('colCredit');
-    const applyMappingBtn = $('applyMappingBtn');
-    const outputPre = $('output');
-    const rowsCount = $('rowsCount');
-    const totalDebitEl = $('totalDebit');
-    const totalCreditEl = $('totalCredit');
-    const netAmountEl = $('netAmount');
-    const exportBtn = $('exportBtn');
-    const downloadCSV = $('downloadCSV');
-    const clearBtn = $('clearBtn');
-    const statementNameEl = $('statementName');
+    const mapDate = $('mapDate');
+    const mapDesc = $('mapDesc');
+    const mapDebit = $('mapDebit');
+    const mapCredit = $('mapCredit');
+    const applyMapBtn = $('applyMapBtn');
+    const startAnalysisBtn = $('startAnalysisBtn');
+    const downloadRawBtn = $('downloadRawBtn');
+    const downloadProcessedBtn = $('downloadProcessedBtn');
 
-    // Helper: render preview table
-    function renderPreview(limit=12){
+    // Chat
+    const askBtn = $('askBtn');
+    const userQuestion = $('userQuestion');
+    const messages = $('messages');
+
+    // Utility: safe number parsing (strip currency chars)
+    function safeNum(val){
+      if (val === null || val === undefined || val === '') return 0;
+      const s = String(val).replace(/[\s,]/g,'').replace(/[^\d\.\-]/g,'');
+      if (!s) return 0;
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function fmt(n){ return new Intl.NumberFormat().format(Math.round((n+Number.EPSILON)*100)/100); }
+
+    // Upload file to backend (multipart)
+    uploadBtn.addEventListener('click', async ()=>{
+      const f = fileInput.files[0];
+      if (!f) { status('Select a file first'); return; }
+      const name = document.getElementById('statementName').value.trim() || f.name;
+      if (!API_BASE) { status('API_BASE not set — frontend configured for local-only mode. Use "Parse Locally".'); return; }
+
+      status('Uploading file to backend...');
+      const fd = new FormData();
+      fd.append('file', f);
+      // optional: include statement name/company id
+      fd.append('statement_name', name);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/upload`, {
+          method: 'POST',
+          headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {},
+          body: fd
+        });
+        if (!res.ok) {
+          const t = await res.text(); throw new Error(`Upload failed: ${res.status} ${t}`);
+        }
+        uploaded = await res.json();
+        status('Upload successful, id: ' + (uploaded.upload_id || uploaded.id || uploaded.uploadId));
+        // Map upload_id key variance
+        uploaded.upload_id = uploaded.upload_id || uploaded.id || uploaded.uploadId;
+        // fetch preview
+        await fetchPreview();
+      } catch (err){
+        status('Upload error: ' + err.message);
+      }
+    });
+
+    // Fetch preview from backend
+    async function fetchPreview(){
+      if (!uploaded || !uploaded.upload_id) { status('No upload id'); return; }
+      status('Requesting backend preview...');
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/uploads/${uploaded.upload_id}/preview`, {
+          headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {}
+        });
+        if (!res.ok) {
+          const t = await res.text(); throw new Error(`Preview fetch failed: ${res.status} ${t}`);
+        }
+        const data = await res.json();
+        // expect data: {headers: [...], sample_rows: [...], detected_mapping: {...} }
+        headers = data.headers || (data.preview && data.preview.headers) || Object.keys((data.sample_rows && data.sample_rows[0]) || {}) || [];
+        parsedRows = data.sample_rows || data.preview?.rows || data.rows || [];
+        mapping = data.detected_mapping || data.mapping || {date:null,desc:null,debit:null,credit:null};
+        populatePreview();
+        populateMappingSelects();
+        status('Preview loaded from backend.');
+      } catch (err){
+        status('Preview error: ' + err.message);
+      }
+    }
+
+    // Start analysis: confirm mapping & request backend to run heavy tasks (OCR, LLM)
+    startAnalysisBtn.addEventListener('click', async ()=>{
+      if (!uploaded || !uploaded.upload_id) { status('Upload to backend first (or use local parse)'); return; }
+      status('Starting analysis on backend...');
+      try {
+        const body = { upload_id: uploaded.upload_id, company_id: 'company_1', mapping };
+        const res = await fetch(`${API_BASE}/api/v1/uploads/${uploaded.upload_id}/confirm`, {
+          method: 'POST',
+          headers: Object.assign({'Content-Type':'application/json'}, AUTH_HEADER ? {'Authorization': AUTH_HEADER} : {}),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const t = await res.text(); throw new Error(`Confirm failed: ${res.status} ${t}`);
+        }
+        const j = await res.json();
+        // backend should return an analysis id or reuse upload_id as analysis id
+        analysisId = j.analysis_id || j.id || j.analysisId || uploaded.upload_id;
+        status('Analysis started. Polling for results: ' + analysisId);
+        pollAnalysis(analysisId);
+      } catch (err){
+        status('Start analysis error: ' + err.message);
+      }
+    });
+
+    // Polling for analysis results
+    async function pollAnalysis(id, interval = 2500, timeout = 5*60*1000){
+      const started = Date.now();
+      status('Polling for analysis result...');
+      while (Date.now() - started < timeout) {
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, { headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {} });
+          if (res.status === 200) {
+            const j = await res.json();
+            // expected j: {id, metrics, report (string or json), charts, transactions}
+            handleAnalysisResult(j);
+            return;
+          } else if (res.status === 202 || res.status === 204) {
+            // still processing
+            status('Analysis processing... (server returned ' + res.status + ')');
+          } else {
+            // other code -> maybe not ready, log text
+            const t = await res.text();
+            status(`Polling returned ${res.status}: ${t}`);
+          }
+        } catch (err) {
+          status('Polling error: ' + err.message);
+        }
+        await new Promise(r => setTimeout(r, interval));
+      }
+      status('Polling timed out after ' + Math.round(timeout/1000) + 's');
+    }
+
+    // Handler once analysis result is ready
+    function handleAnalysisResult(json){
+      status('Analysis complete — rendering results.');
+      // Example expected structure:
+      // { id, company_id, metrics: {gross_margin, net_margin, current_ratio...}, report: {executive_summary, top_issues, recommended_actions}, transactions: [...], charts: {monthly: {...}} }
+      log('Analysis result: ' + JSON.stringify(json, null, 2));
+      // render metrics if present
+      if (json.metrics){
+        $('totalDebit').textContent = json.metrics.total_debit ? fmt(json.metrics.total_debit) : (json.metrics.debit_total ? fmt(json.metrics.debit_total) : '—');
+        $('totalCredit').textContent = json.metrics.total_credit ? fmt(json.metrics.total_credit) : (json.metrics.credit_total ? fmt(json.metrics.credit_total) : '—');
+        const net = (safeNum(json.metrics.total_credit || json.metrics.credit_total) - safeNum(json.metrics.total_debit || json.metrics.debit_total));
+        $('netAmount').textContent = fmt(net);
+      }
+      // if transactions provided, use them for preview/charts
+      if (json.transactions && json.transactions.length){
+        parsedRows = json.transactions;
+        headers = Object.keys(parsedRows[0] || {});
+        populatePreview();
+        renderBarFromTransactions(parsedRows);
+      } else if (json.charts && json.charts.monthly){
+        const months = Object.keys(json.charts.monthly).sort();
+        const debitData = months.map(m => json.charts.monthly[m].debit || 0);
+        const creditData = months.map(m => json.charts.monthly[m].credit || 0);
+        renderBarChart(months, debitData, creditData);
+      }
+      // render report text if available
+      const reportText = json.report ? (typeof json.report === 'string' ? json.report : JSON.stringify(json.report, null, 2)) : JSON.stringify(json, null, 2);
+      $('log').textContent = reportText + '\n\n' + $('log').textContent;
+      analysisId = json.id || analysisId;
+    }
+
+    // Ask question to analysis / LLM
+    askBtn.addEventListener('click', async ()=>{
+      const q = userQuestion.value.trim();
+      if (!q) return;
+      if (!analysisId) { status('No analysis available to ask. Run analysis first.'); return; }
+      addMessage('user', q);
+      userQuestion.value = '';
+      status('Sending question to backend LLM...');
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/analyses/${analysisId}/ask`, {
+          method: 'POST',
+          headers: Object.assign({'Content-Type':'application/json'}, AUTH_HEADER ? {'Authorization': AUTH_HEADER} : {}),
+          body: JSON.stringify({ question: q })
+        });
+        if (!res.ok) { const t = await res.text(); throw new Error('LLM ask failed: ' + t); }
+        const j = await res.json();
+        const answer = j.answer || j.text || j.message || JSON.stringify(j, null, 2);
+        addMessage('bot', answer);
+        status('LLM answered.');
+      } catch (err){
+        status('LLM error: ' + err.message);
+        addMessage('bot', 'Error: ' + err.message);
+      }
+    });
+
+    function addMessage(kind, text){
+      const el = document.createElement('div');
+      el.className = 'msg ' + (kind === 'user' ? 'user' : 'bot');
+      el.textContent = text;
+      messages.appendChild(el);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    /***********************
+     * Local parsing fallback (useful for dev/test)
+     ***********************/
+    localParseBtn.addEventListener('click', async ()=>{
+      const f = fileInput.files[0];
+      if (!f) { status('Select a file first'); return; }
+      status('Parsing locally (client-side) — this is a fallback for testing.');
+      try {
+        if (/\.(xls|xlsx|csv)$/i.test(f.name)) {
+          const arr = await f.arrayBuffer();
+          const wb = XLSX.read(arr, {type:'array'});
+          const sheet = wb.SheetNames[0];
+          const json = XLSX.utils.sheet_to_json(wb.Sheets[sheet], {defval:''});
+          if (!json.length) throw new Error('No rows found in sheet.');
+          parsedRows = json;
+          headers = Object.keys(parsedRows[0]);
+          mapping = {}; // leave to auto-detect / user mapping
+          populatePreview();
+          populateMappingSelects();
+          computeLocalSummaryAndRender();
+          status('Local parse complete.');
+        } else if (/\.pdf$/i.test(f.name) || f.type.startsWith('image/')) {
+          // Try to extract text using pdf.js (digital) OR show image URL for OCR later
+          if (/\.pdf$/i.test(f.name)) {
+            const uint8 = new Uint8Array(await f.arrayBuffer());
+            const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
+            let text = '';
+            const pages = Math.min(pdf.numPages, 6);
+            for (let i=1;i<=pages;i++){
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              text += content.items.map(it => it.str).join(' ') + '\n';
+            }
+            // very naive: split into lines and try to extract date+amount lines
+            const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+            const dateRegex = /(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/;
+            const amountRegex = /(-?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d+)?)/g;
+            const rows = [];
+            for (const ln of lines){
+              if (dateRegex.test(ln) && amountRegex.test(ln)){
+                const date = ln.match(dateRegex)[0];
+                const amounts = [...ln.matchAll(amountRegex)].map(m => m[0]);
+                const amt = amounts[amounts.length-1];
+                const desc = ln.replace(date,'').replace(amt,'').trim();
+                rows.push({Date: date, Description: desc, Amount: amt});
+              }
+            }
+            if (!rows.length) throw new Error('No transactional lines detected in PDF text. For scanned images you need OCR (server side).');
+            parsedRows = rows;
+            headers = Object.keys(rows[0]);
+            populatePreview();
+            populateMappingSelects();
+            computeLocalSummaryAndRender();
+            status('Local PDF parse complete.');
+          } else {
+            // image file: can't OCR without Tesseract or server; show message
+            parsedRows = []; headers = [];
+            populatePreview();
+            status('Image uploaded. Images require OCR (server-side or Tesseract). Use backend with OCR enabled.');
+          }
+        } else {
+          throw new Error('Unsupported file type for local parsing.');
+        }
+      } catch (err){
+        status('Local parse error: ' + err.message);
+      }
+    });
+
+    // Populate preview table
+    function populatePreview(limit=8){
       previewHead.innerHTML = '';
       previewBody.innerHTML = '';
-      if (!headers.length) { previewBody.innerHTML = '<tr><td style="padding:12px;">No parsed data</td></tr>'; return; }
-
-      const headRow = document.createElement('tr');
-      headers.forEach(h=>{
-        const th = document.createElement('th');
-        th.textContent = h;
-        headRow.appendChild(th);
+      if (!headers.length) {
+        previewBody.innerHTML = '<tr><td style="padding:10px">No parsed data</td></tr>'; return;
+      }
+      const trh = document.createElement('tr');
+      headers.forEach(h => {
+        const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
       });
-      previewHead.appendChild(headRow);
+      previewHead.appendChild(trh);
 
       const rowsToShow = parsedRows.slice(0, limit);
-      rowsToShow.forEach(row=>{
+      rowsToShow.forEach(row => {
         const tr = document.createElement('tr');
-        headers.forEach(h=>{
+        headers.forEach(h => {
           const td = document.createElement('td');
-          let v = row[h]; if (v === undefined || v === null) v = '';
-          td.textContent = String(v);
+          td.textContent = row[h] === undefined || row[h] === null ? '' : String(row[h]);
           tr.appendChild(td);
         });
         previewBody.appendChild(tr);
       });
+      $('rowsInfo').textContent = 'Rows: ' + parsedRows.length;
     }
 
-    // Create mapping selects
+    // Populate mapping selects with headers
     function populateMappingSelects(){
-      [colDate, colDesc, colDebit, colCredit].forEach(sel => {
-        sel.innerHTML = '';
-        const empty = document.createElement('option'); empty.value=''; empty.textContent='—';
-        sel.appendChild(empty);
-      });
-      headers.forEach(h=>{
-        [colDate, colDesc, colDebit, colCredit].forEach(sel => {
-          const opt = document.createElement('option');
-          opt.value = h; opt.textContent = h;
-          sel.appendChild(opt);
+      if (!headers.length) return;
+      [mapDate, mapDesc, mapDebit, mapCredit].forEach(s => { s.innerHTML = '<option value="">— none —</option>'; });
+      headers.forEach(h => {
+        [mapDate, mapDesc, mapDebit, mapCredit].forEach(s => {
+          const o = document.createElement('option'); o.value = h; o.textContent = h; s.appendChild(o);
         });
       });
-
-      // Try auto-detect columns heuristically
+      // try heuristics to choose
       const lc = headers.map(h => h.toLowerCase());
-      // date candidates
-      const dateIdx = lc.findIndex(h => /(date|tgl|transaction date|txn)/.test(h));
-      if (dateIdx !== -1) colDate.value = headers[dateIdx];
-
-      const descIdx = lc.findIndex(h => /(description|narration|particular|details|remarks)/.test(h));
-      if (descIdx !== -1) colDesc.value = headers[descIdx];
-
-      const debitIdx = lc.findIndex(h => /(debit|withdrawal|dr)/.test(h));
-      if (debitIdx !== -1) colDebit.value = headers[debitIdx];
-
-      const creditIdx = lc.findIndex(h => /(credit|deposit|cr)/.test(h));
-      if (creditIdx !== -1) colCredit.value = headers[creditIdx];
-
-      mappingArea.style.display = 'block';
+      const find = (regexes)=> { for (let i=0;i<lc.length;i++){ for (const r of regexes) if (lc[i].match(r)) return headers[i]; } return ''; };
+      mapDate.value = find([/date/,/tgl/,/transaction date/]) || '';
+      mapDesc.value = find([/description|narration|particula|remarks|details/]) || '';
+      mapDebit.value = find([/debit|withdrawal|dr/]) || '';
+      mapCredit.value = find([/credit|deposit|cr/]) || '';
+      document.getElementById('mappingArea').style.display = 'flex';
     }
 
-    // Apply mapping (reads selects)
-    applyMappingBtn.addEventListener('click', ()=>{
-      mapping.date = colDate.value || null;
-      mapping.desc = colDesc.value || null;
-      mapping.debit = colDebit.value || null;
-      mapping.credit = colCredit.value || null;
-      status('Mapping applied — computing summary...');
-      computeSummaryAndCharts();
+    applyMapBtn && applyMapBtn.addEventListener('click', ()=>{
+      mapping = {date: mapDate.value || null, desc: mapDesc.value || null, debit: mapDebit.value || null, credit: mapCredit.value || null};
+      status('Mapping applied: ' + JSON.stringify(mapping));
+      computeLocalSummaryAndRender();
     });
 
-    // Main analyze button
-    analyzeBtn.addEventListener('click', async ()=>{
-      const f = fileInput.files[0];
-      if (!f) { status('Select a file first'); return; }
-      const name = statementNameEl.value.trim();
-      if (!name) { status('Provide a statement name (for export)'); return; }
-
-      status('Reading file...');
-      parsedRows = []; headers = []; mappingArea.style.display='none'; outputPre.textContent = '';
-      try {
-        if (/\.(xls|xlsx|csv)$/i.test(f.name)) {
-          await handleSpreadsheetFile(f);
-        } else if (/\.pdf$/i.test(f.name)) {
-          await handlePdfFile(f);
-        } else {
-          throw new Error('Unsupported file type. Please use CSV/XLSX/PDF.');
-        }
-        renderPreview();
-        populateMappingSelects();
-        // if auto-detected mapping set mapping
-        mapping = {date: colDate.value || null, desc: colDesc.value || null, debit: colDebit.value || null, credit: colCredit.value || null};
-        status('Parsed successfully — review mapping and click "Apply Mapping" or use auto mapping.');
-        computeSummaryAndCharts();
-      } catch (err){
-        console.error(err);
-        status('Error: ' + (err.message || err));
-        outputPre.textContent = String(err.stack || err.message || err);
-      }
-    });
-
-    // Spreadsheet parser (XLSX / CSV)
-    async function handleSpreadsheetFile(file){
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, {type:'array'});
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
-      if (!json || !json.length) throw new Error('No rows detected in the sheet.');
-      // Build headers in insertion order
-      headers = Object.keys(json[0]);
-      parsedRows = json.map(r => {
-        // convert keys to string values to be safe
-        const row = {};
-        headers.forEach(h => row[h] = r[h]);
-        return row;
-      });
-      outputPre.textContent = `Parsed ${parsedRows.length} rows from sheet "${sheetName}".\n\nFirst rows preview:\n` + JSON.stringify(parsedRows.slice(0,4), null, 2);
-    }
-
-    // PDF text extraction (digital PDF). Attempts to extract lines that look like transactions.
-    async function handlePdfFile(file){
-      const uint8 = new Uint8Array(await file.arrayBuffer());
-      const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
-      let text = '';
-      const pagesToRead = Math.min(pdf.numPages, 6); // read first few pages
-      for (let i = 1; i <= pagesToRead; i++){
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map(it => it.str);
-        text += strings.join(' ') + '\n';
-      }
-      outputPre.textContent = `Extracted text (first ${pagesToRead} pages):\n\n` + text.substring(0,4000);
-
-      // Try to find transaction-like lines: pattern of date + description + amount
-      // This is heuristic — will not work for images (OCR required)
-      const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-      const candidateRows = [];
-      const dateRegex = /(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/;
-      const amountRegex = /(-?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d+)?)/g;
-
-      for (let ln of lines){
-        if (dateRegex.test(ln) && amountRegex.test(ln)){
-          // try to extract first date and last numeric token as amount
-          const dateMatch = ln.match(dateRegex);
-          const amounts = [...ln.matchAll(amountRegex)].map(m=>m[0]);
-          if (amounts.length){
-            const amount = amounts[amounts.length-1];
-            // naive split — put the rest as description
-            const desc = ln.replace(dateMatch[0],'').replace(amount,'').replace(/\s{2,}/g,' ').trim();
-            candidateRows.push({Date: dateMatch[0], Description: desc, Amount: amount});
-          }
-        }
-      }
-
-      if (!candidateRows.length) throw new Error('No transaction-like lines detected in PDF text. If your PDF is a scanned image, OCR is required (try option B).');
-      headers = Object.keys(candidateRows[0]);
-      parsedRows = candidateRows;
-      outputPre.textContent += `\n\nDetected ${candidateRows.length} transaction-like lines (heuristic). Review mapping and adjust as needed.`;
-    }
-
-    // Compute totals & charts
-    function computeSummaryAndCharts(){
-      if (!parsedRows.length) { status('No rows to summarize'); return; }
-      // Choose columns:
-      const dateCol = mapping.date || null;
-      const descCol = mapping.desc || null;
-      const debitCol = mapping.debit || null;
-      const creditCol = mapping.credit || null;
-
+    // Compute local summary for charting from parsedRows (fallback)
+    function computeLocalSummaryAndRender(){
+      if (!parsedRows.length) { status('No parsed rows to summarize'); return; }
+      // Simple aggregation: sum debit/credit based on mapping or amount sign
       let totalDebit = 0, totalCredit = 0;
-      const monthly = {}; // map YYYY-MM -> {debit,credit}
-
+      const monthly = {};
       parsedRows.forEach(row => {
-        // normalize access
-        const getVal = (col) => (col && row.hasOwnProperty(col)) ? row[col] : '';
-
-        // If explicit debit/credit columns exist
-        const dval = safeParseNumber(getVal(debitCol));
-        const cval = safeParseNumber(getVal(creditCol));
-
-        // If only an Amount column exists (e.g., positive = credit, negative = debit)
-        let amountColValue = null;
-        if (!debitCol && !creditCol && row.hasOwnProperty('Amount')) amountColValue = safeParseNumber(row['Amount']);
-        // Attempt to find any numeric-looking field as amount
-        if (!debitCol && !creditCol && amountColValue === null) {
-          // try to find first numeric field in row
-          for (const k of headers){
-            if (k.toLowerCase().includes('amount') || k.toLowerCase().includes('balance') || k.toLowerCase().includes('amt')) {
-              amountColValue = safeParseNumber(row[k]);
-              break;
-            }
-          }
+        let debit = mapping.debit ? safeNum(row[mapping.debit]) : 0;
+        let credit = mapping.credit ? safeNum(row[mapping.credit]) : 0;
+        let amount = 0;
+        // if amount col exists
+        for (const k of Object.keys(row)) {
+          if (k.toLowerCase().includes('amount') || k.toLowerCase().includes('amt')) { amount = safeNum(row[k]); break; }
         }
-
-        if (dval || cval){
-          totalDebit += dval;
-          totalCredit += cval;
-        } else if (amountColValue !== null){
-          // heuristic: negative => debit, positive => credit
-          if (amountColValue < 0) totalDebit += Math.abs(amountColValue);
-          else totalCredit += amountColValue;
+        // If debit/credit provided use them; else use amount sign
+        if (debit || credit) {
+          totalDebit += debit; totalCredit += credit;
+        } else if (amount) {
+          if (amount < 0) totalDebit += Math.abs(amount); else totalCredit += amount;
         } else {
-          // try to detect a trailing currency token in any column
-          let found = false;
-          for (const k of headers){
-            const candidate = safeParseNumber(row[k]);
-            if (candidate){
-              // guess credit for positive
-              if (candidate < 0) totalDebit += Math.abs(candidate);
-              else totalCredit += candidate;
-              found = true;
-              break;
-            }
-          }
-          if (!found){
-            // skip
+          // try first numeric a value
+          const found = Object.values(row).map(v => safeNum(v)).find(n => n);
+          if (found) {
+            if (found < 0) totalDebit += Math.abs(found); else totalCredit += found;
           }
         }
-
-        // monthly aggregation using the date column if available
+        // monthly by date if possible
         let d = null;
-        if (dateCol && row[dateCol]){
-          d = parseDateFlexible(String(row[dateCol]));
-        } else if (row.Date) {
-          d = parseDateFlexible(String(row.Date));
-        }
-        if (d){
+        if (mapping.date && row[mapping.date]) d = parseDateFlexible(String(row[mapping.date]));
+        else if (row.Date) d = parseDateFlexible(String(row.Date));
+        if (d) {
           const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
           if (!monthly[key]) monthly[key] = {debit:0, credit:0};
-          // allocate to monthly totals the same way as above
-          if (dval || cval){
-            monthly[key].debit += dval;
-            monthly[key].credit += cval;
-          } else if (amountColValue !== null){
-            if (amountColValue < 0) monthly[key].debit += Math.abs(amountColValue);
-            else monthly[key].credit += amountColValue;
-          } else {
-            // attempt to find numeric
-            for (const k of headers){
-              const candidate = safeParseNumber(row[k]);
-              if (candidate){
-                if (candidate < 0) monthly[key].debit += Math.abs(candidate);
-                else monthly[key].credit += candidate;
-                break;
-              }
-            }
+          // allocate similarly as above
+          if (debit || credit) { monthly[key].debit += debit; monthly[key].credit += credit; }
+          else if (amount) { if (amount<0) monthly[key].debit += Math.abs(amount); else monthly[key].credit += amount; }
+          else {
+            const found = Object.values(row).map(v => safeNum(v)).find(n => n);
+            if (found) { if (found<0) monthly[key].debit += Math.abs(found); else monthly[key].credit += found; }
           }
         }
       });
+      $('totalDebit').textContent = fmt(totalDebit);
+      $('totalCredit').textContent = fmt(totalCredit);
+      $('netAmount').textContent = fmt(totalCredit - totalDebit);
 
-      // Render stats
-      rowsCount.textContent = `Rows: ${parsedRows.length}`;
-      totalDebitEl.textContent = formatNumber(totalDebit);
-      totalCreditEl.textContent = formatNumber(totalCredit);
-      netAmountEl.textContent = formatNumber(totalCredit - totalDebit);
-
-      // Render charts
+      // chart from monthly
       const months = Object.keys(monthly).sort();
       const debitData = months.map(m => monthly[m].debit || 0);
       const creditData = months.map(m => monthly[m].credit || 0);
-
       renderBarChart(months, debitData, creditData);
-      renderPieChart([debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)]);
-
-      // update output area with structured summary
-      outputPre.textContent = `Summary:\nRows parsed: ${parsedRows.length}\nTotal Debit: ${formatNumber(totalDebit)}\nTotal Credit: ${formatNumber(totalCredit)}\nNet: ${formatNumber(totalCredit - totalDebit)}\n\nMonthly breakdown:\n${JSON.stringify(monthly, null, 2)}\n\nMapping used:\n${JSON.stringify(mapping, null, 2)}`;
-      status('Analysis complete');
+      log(`Local summary computed. Debit ${fmt(totalDebit)}, Credit ${fmt(totalCredit)}.`);
     }
 
-    // Render charts using Chart.js
+    // rendering chart
     function renderBarChart(labels, debitData, creditData){
-      const ctx = document.getElementById('barChart').getContext('2d');
+      const ctx = $('barChart').getContext('2d');
       if (barChart) barChart.destroy();
       barChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: labels,
+          labels,
           datasets: [
-            { label: 'Debit', data: debitData },
-            { label: 'Credit', data: creditData }
+            { label: 'Debit', data: debitData, backgroundColor: 'rgba(255,99,132,0.8)' },
+            { label: 'Credit', data: creditData, backgroundColor: 'rgba(54,162,235,0.8)' }
           ]
         },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'top' }
-          },
-          scales: {
-            x: { stacked: false },
-            y: { beginAtZero: true }
-          }
-        }
+        options: { responsive: true, plugins: { legend:{position:'top'} }, scales: { y:{beginAtZero:true} } }
       });
     }
 
-    function renderPieChart(values){
-      const ctx = document.getElementById('pieChart').getContext('2d');
-      if (pieChart) pieChart.destroy();
-      pieChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-          labels: ['Total Debit','Total Credit'],
-          datasets: [{ data: values }]
-        },
-        options: { responsive: true }
+    function renderBarFromTransactions(trans){
+      // build monthly from transactions having date/amount fields
+      const monthly = {};
+      trans.forEach(t => {
+        let d = parseDateFlexible(t.date || t.Date || t.txn_date || t.transaction_date || '');
+        if (!d) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if (!monthly[key]) monthly[key] = {debit:0,credit:0};
+        const debit = safeNum(t.debit || t.Debit || t.amount_debit || 0);
+        const credit = safeNum(t.credit || t.Credit || t.amount_credit || t.amount || 0);
+        if (debit) monthly[key].debit += debit;
+        else if (credit) monthly[key].credit += credit;
+        else if (t.amount) { const a = safeNum(t.amount); if (a < 0) monthly[key].debit += Math.abs(a); else monthly[key].credit += a; }
       });
+      const months = Object.keys(monthly).sort();
+      const debitData = months.map(m => monthly[m].debit || 0);
+      const creditData = months.map(m => monthly[m].credit || 0);
+      renderBarChart(months, debitData, creditData);
     }
 
-    // Helper: flexible date parsing (common formats)
+    // Downloaders
+    downloadRawBtn.addEventListener('click', ()=>{
+      if (!parsedRows.length) { status('Nothing parsed'); return; }
+      const payload = { headers, rows: parsedRows, mapping };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = (document.getElementById('statementName').value.trim() || 'statement') + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    downloadProcessedBtn.addEventListener('click', ()=>{
+      if (!parsedRows.length) { status('Nothing parsed'); return; }
+      const csv = [headers.join(',')].concat(parsedRows.map(r => headers.map(h => `"${String(r[h]||'').replace(/"/g,'""')}"`).join(','))).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = (document.getElementById('statementName').value.trim() || 'statement') + '_processed.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // small utils: flexible date parsing
     function parseDateFlexible(str){
       if (!str) return null;
-      str = str.trim().replace(/\s+/g,' ');
-      // Try ISO first
-      let d = new Date(str);
+      const s = String(str).trim();
+      // try Date.parse first
+      let d = new Date(s);
       if (!isNaN(d)) return d;
-      // Try common formats: dd/mm/yyyy or dd-mm-yyyy or mm/dd/yyyy
-      // Replace dots with slashes
-      let s = str.replace(/\./g,'/').replace(/-/g,'/');
-      // Extract numbers
-      const parts = s.match(/(\d{1,4})\/(\d{1,2})\/(\d{1,4})/);
+      // replace - . with /
+      const s2 = s.replace(/\./g,'/').replace(/-/g,'/');
+      const parts = s2.match(/(\d{1,4})\/(\d{1,2})\/(\d{1,4})/);
       if (parts){
-        let a = Number(parts[1]), b = Number(parts[2]), c = Number(parts[3]);
-        // heuristics: if first part > 31 then it's year-first
-        if (a > 31) { d = new Date(a, b-1, c); if (!isNaN(d)) return d; }
-        // if third part is year
-        if (c > 31) { d = new Date(c, a-1, b); if (!isNaN(d)) return d; }
-        // otherwise fallback
+        const a=+parts[1], b=+parts[2], c=+parts[3];
+        if (a>31) { d=new Date(a,b-1,c); if(!isNaN(d)) return d; }
+        if (c>31) { d=new Date(c,a-1,b); if(!isNaN(d)) return d; }
       }
-      // last resort: try parsing tokens like "12 Jan 2025"
-      const dt = Date.parse(str);
-      if (!isNaN(dt)) return new Date(dt);
+      // try dd mmm yyyy
+      const parsed = Date.parse(s);
+      if(!isNaN(parsed)) return new Date(parsed);
       return null;
     }
 
-    // Export processed rows as CSV or JSON
-    exportBtn.addEventListener('click', ()=>{
-      if (!parsedRows.length) { status('Nothing to export'); return; }
-      const payload = {
-        name: statementNameEl.value.trim() || 'statement',
-        parsedRows,
-        headers,
-        mapping,
-        summary: {
-          totalDebit: $('totalDebit').textContent,
-          totalCredit: $('totalCredit').textContent,
-          net: $('netAmount').textContent
-        }
-      };
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
-      const a = document.createElement('a');
-      a.href = dataStr;
-      a.download = (payload.name.replace(/\s+/g,'_') || 'statement') + '.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      status('Exported JSON');
-    });
+    // initial debug status
+    status('Ready — configure API_BASE and AUTH_HEADER in top of file if you want to connect to backend.');
 
-    // Download processed CSV
-    downloadCSV.addEventListener('click', ()=>{
-      if (!parsedRows.length) { status('Nothing to download'); return; }
-      const csv = [headers.join(',')].concat(parsedRows.map(r => headers.map(h => {
-        const v = r[h]===undefined || r[h]===null ? '' : String(r[h]).replace(/"/g,'""');
-        return `"${v}"`;
-      }).join(','))).join('\n');
-
-      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url;
-      a.download = (statementNameEl.value.trim().replace(/\s+/g,'_') || 'statement') + '.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-      status('Downloaded CSV');
-    });
-
-    // Clear all
-    clearBtn.addEventListener('click', ()=>{
-      parsedRows = []; headers = []; mapping = {date:null,desc:null,debit:null,credit:null};
-      previewHead.innerHTML = ''; previewBody.innerHTML = ''; outputPre.textContent = 'Cleared.';
-      mappingArea.style.display = 'none';
-      rowsCount.textContent = 'Rows: 0';
-      totalDebitEl.textContent = '—'; totalCreditEl.textContent='—'; netAmountEl.textContent='—';
-      if (barChart) { barChart.destroy(); barChart = null; }
-      if (pieChart) { pieChart.destroy(); pieChart = null; }
-      status('Cleared');
-    });
-
-    function status(txt){
-      statusEl.textContent = txt;
-      // small log
-      console.log('[STATUS]', txt);
-    }
-
-    // Small UX: if user changes selects, update mapping variable live
-    [colDate, colDesc, colDebit, colCredit].forEach(el=>{
-      el.addEventListener('change', ()=> {
-        mapping.date = colDate.value || null;
-        mapping.desc = colDesc.value || null;
-        mapping.debit = colDebit.value || null;
-        mapping.credit = colCredit.value || null;
-      });
-    });
-
-    // Drag & drop support (optional)
-    ;(function enableDragDrop(){
-      const dropZone = document.body;
-      dropZone.addEventListener('dragover', (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-      dropZone.addEventListener('drop', (e)=>{
+    // drag & drop for convenience
+    (function enableDragDrop(){
+      document.body.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+      document.body.addEventListener('drop', e => {
         e.preventDefault();
-        if (e.dataTransfer.files && e.dataTransfer.files.length){
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
           fileInput.files = e.dataTransfer.files;
-          status('File dropped — ready to analyze. Click Analyze.');
+          status('File dropped — click Upload or Parse Locally.');
         }
       });
     })();
 
-    // If user clicks a preview row, show detailed row in output
-    previewBody.addEventListener('click', (e)=>{
-      let tr = e.target.closest('tr'); if (!tr) return;
-      const i = Array.from(previewBody.children).indexOf(tr);
-      const row = parsedRows[i];
-      outputPre.textContent = `Row ${i+1} details:\n\n` + JSON.stringify(row, null, 2);
-    });
-
-    // Initialization: show placeholder preview
-    renderPreview();
-
-    // End of script
   </script>
 </body>
 </html>
