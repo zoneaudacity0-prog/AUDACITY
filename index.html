@@ -8,7 +8,6 @@
 
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.140/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -35,8 +34,6 @@ nav ul li a:hover { color: #0d6efd; }
 .upload-section button:hover { background: #0956c1; }
 /* Summary Section */
 .summary { margin-top: 40px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 900px; margin-left: auto; margin-right: auto; text-align: left; }
-.summary h3 { color: #0d6efd; margin-bottom: 15px; }
-.summary pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow-x: auto; }
 /* Table */
 .table-container { overflow-x:auto; margin-top:20px; }
 table { width:100%; border-collapse: collapse; margin-top:10px; }
@@ -74,14 +71,14 @@ footer a { color: #0d6efd; margin: 0 5px; }
 <!-- Hero Section -->
 <section class="hero">
   <h1>Upload Your Bank Statement for Instant Insights</h1>
-  <p>Excel, CSV, or PDF. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
+  <p>Excel or CSV. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
   <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
 <!-- Upload Section -->
 <section class="upload-section" id="upload">
   <h2>Upload Bank Statement</h2>
-  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
   <br>
   <input type="text" id="statementName" placeholder="Enter Bank Statement Name">
   <br>
@@ -108,7 +105,6 @@ footer a { color: #0d6efd; margin: 0 5px; }
   <p>Follow us on <a href="#">Twitter</a> | <a href="#">LinkedIn</a> | <a href="#">Facebook</a></p>
 </footer>
 
-<!-- JavaScript -->
 <script>
 let barChartInstance, pieChartInstance;
 
@@ -127,64 +123,54 @@ async function analyzeStatement() {
   }
 
   const file = fileInput.files[0];
-  tableOutput.innerHTML = `Analyzing "${statementName}"...\n`;
-
-  let transactions = [];
+  tableOutput.innerHTML = `Analyzing "${statementName}"...`;
 
   try {
-    if (file.name.endsWith(".csv") || file.name.endsWith(".xls") || file.name.endsWith(".xlsx")) {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(sheet, { defval: 0 });
-      transactions = json;
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: 0 });
 
-      // Group transactions by month/year
-      const monthMap = {};
-      json.forEach(row => {
-        const dateStr = row.Date || row.date || row.DATE;
-        const debit = parseFloat(row.Debit || row.debit || 0) || 0;
-        const credit = parseFloat(row.Credit || row.credit || 0) || 0;
+    // Map only the necessary columns
+    const monthMap = {};
+    json.forEach(row => {
+      const dateStr = row['TRANS DATE'] || row['Trans Date'] || row['trans date'];
+      const debit = parseFloat(row['DEBIT'] || row['Debit'] || row['debit'] || 0) || 0;
+      const credit = parseFloat(row['CREDIT'] || row['Credit'] || row['credit'] || 0) || 0;
 
-        if (!dateStr) return;
-        const date = new Date(dateStr);
-        if (isNaN(date)) return;
+      if (!dateStr) return;
+      const date = new Date(dateStr);
+      if (isNaN(date)) return;
 
-        const monthKey = `${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()}`;
-        if (!monthMap[monthKey]) monthMap[monthKey] = { Debit: 0, Credit: 0, Date: date };
-        monthMap[monthKey].Debit += debit;
-        monthMap[monthKey].Credit += credit;
-      });
+      const monthKey = `${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()}`;
+      if (!monthMap[monthKey]) monthMap[monthKey] = { Debit: 0, Credit: 0, Date: date };
+      monthMap[monthKey].Debit += debit;
+      monthMap[monthKey].Credit += credit;
+    });
 
-      // Sort months chronologically
-      const months = Object.keys(monthMap).sort((a,b) => monthMap[a].Date - monthMap[b].Date);
+    const months = Object.keys(monthMap).sort((a,b) => monthMap[a].Date - monthMap[b].Date);
 
-      // Build HTML table
-      let tableHTML = `<div class="table-container"><table><thead>
-        <tr><th>S/N</th><th>Month</th><th>Date</th><th>Debit</th><th>Credit</th></tr></thead><tbody>`;
+    // Build table
+    let tableHTML = `<div class="table-container"><table><thead>
+      <tr><th>S/N</th><th>Month</th><th>Date</th><th>Debit</th><th>Credit</th></tr></thead><tbody>`;
 
-      for (let i = 0; i < 14; i++) {
-        let month = months[i] || '';
-        let debit = month ? monthMap[month].Debit.toFixed(2) : '';
-        let credit = month ? monthMap[month].Credit.toFixed(2) : '';
-        let date = month ? monthMap[month].Date.toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
-        let sn = (i < 12 && month) ? (i+1) : '';
-        tableHTML += `<tr><td>${sn}</td><td>${month}</td><td>${date}</td><td>${debit}</td><td>${credit}</td></tr>`;
-      }
-
-      tableHTML += `</tbody></table></div>`;
-      tableOutput.innerHTML = tableHTML;
-
-      // Prepare chart data
-      const debitData = months.map(m => monthMap[m].Debit);
-      const creditData = months.map(m => monthMap[m].Credit);
-
-      renderCharts(months, debitData, creditData);
-
-    } else {
-      tableOutput.innerHTML = "Unsupported file type. Please upload CSV/XLSX file.";
+    for (let i = 0; i < 14; i++) {
+      let month = months[i] || '';
+      let debit = month ? monthMap[month].Debit.toFixed(2) : '';
+      let credit = month ? monthMap[month].Credit.toFixed(2) : '';
+      let date = month ? monthMap[month].Date.toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+      let sn = (i < 12 && month) ? (i+1) : '';
+      tableHTML += `<tr><td>${sn}</td><td>${month}</td><td>${date}</td><td>${debit}</td><td>${credit}</td></tr>`;
     }
+
+    tableHTML += `</tbody></table></div>`;
+    tableOutput.innerHTML = tableHTML;
+
+    const debitData = months.map(m => monthMap[m].Debit);
+    const creditData = months.map(m => monthMap[m].Credit);
+    renderCharts(months, debitData, creditData);
+
   } catch (err) {
     tableOutput.innerHTML = `Error analyzing file: ${err.message}`;
   }
@@ -195,13 +181,10 @@ function renderCharts(months, debitData, creditData) {
   if (barChartInstance) barChartInstance.destroy();
   barChartInstance = new Chart(barCtx, {
     type: 'bar',
-    data: {
-      labels: months,
-      datasets: [
-        { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
-        { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
-      ]
-    },
+    data: { labels: months, datasets: [
+      { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
+      { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
+    ]},
     options: { responsive: true, plugins: { legend: { position: 'top' } } }
   });
 
@@ -209,10 +192,10 @@ function renderCharts(months, debitData, creditData) {
   if (pieChartInstance) pieChartInstance.destroy();
   pieChartInstance = new Chart(pieCtx, {
     type: 'pie',
-    data: {
-      labels: ['Total Debit', 'Total Credit'],
-      datasets: [{ data: [debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)], backgroundColor: ['#ff6384','#36a2eb'] }]
-    },
+    data: { labels: ['Total Debit','Total Credit'], datasets:[{
+      data: [debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)],
+      backgroundColor: ['#ff6384','#36a2eb']
+    }]},
     options: { responsive: true }
   });
 }
