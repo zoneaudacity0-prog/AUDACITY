@@ -1,177 +1,113 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AUDACITY ZONE — Bank Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
-  <style>
-    /* Keep all your original CSS exactly */
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-    body { background: #f7f8fa; color: #1a1a1a; line-height: 1.6; }
-    a { text-decoration: none; color: inherit; }
+<script>
+let barChartInstance, pieChartInstance;
 
-    nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 50px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
-    .logo { font-size: 1.8rem; font-weight: 700; color: #0d6efd; }
-    nav ul { display: flex; gap: 25px; list-style: none; }
-    nav ul li { font-weight: 600; }
-    nav ul li a:hover { color: #0d6efd; }
-    .btn { padding: 10px 20px; background-color: #0d6efd; color: #fff; border-radius: 6px; font-weight: 600; }
+async function analyzeStatement() {
+  const fileInput = document.getElementById('fileInput');
+  const statementName = document.getElementById('statementName').value.trim();
+  const output = document.getElementById('output');
 
-    .hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 80px 20px; background: #e9f2ff; }
-    .hero h1 { font-size: 2.8rem; font-weight: 700; color: #0d6efd; margin-bottom: 20px; }
-    .hero p { font-size: 1.2rem; max-width: 600px; margin-bottom: 30px; }
-    .hero .hero-btn { padding: 12px 25px; background: #0d6efd; color: #fff; border-radius: 8px; font-weight: 600; }
+  if (!fileInput.files.length) {
+    output.textContent = "Please select a file to analyze.";
+    return;
+  }
+  if (!statementName) {
+    output.textContent = "Please enter a name for your statement.";
+    return;
+  }
 
-    .upload-section { padding: 60px 50px; text-align: center; }
-    .upload-section h2 { font-size: 2rem; color: #0d6efd; margin-bottom: 25px; }
-    .upload-section input, .upload-section button { margin: 10px 0; padding: 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; }
-    .upload-section button { background: #0d6efd; color: #fff; border: none; cursor: pointer; transition: background 0.3s; }
-    .upload-section button:hover { background: #0956c1; }
+  const file = fileInput.files[0];
+  output.textContent = `Analyzing "${statementName}"...\n\n`;
 
-    .summary { margin-top: 40px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 900px; margin-left: auto; margin-right: auto; text-align: left; }
-    .summary h3 { color: #0d6efd; margin-bottom: 15px; }
-    .summary pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow-x: auto; }
+  let transactions = [];
+  try {
+    if (file.name.endsWith(".csv") || file.name.endsWith(".xls") || file.name.endsWith(".xlsx")) {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: 0 });
+      transactions = json;
 
-    .charts { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; margin-top: 30px; }
-    .chart-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 400px; }
+      output.textContent += `First 5 rows of ${json.length} total rows:\n`;
+      output.textContent += JSON.stringify(json.slice(0,5), null, 2);
 
-    footer { background: #1a1a1a; color: #fff; padding: 40px; text-align: center; }
-    footer a { color: #0d6efd; margin: 0 5px; }
+      // Summaries
+      let debitTotal = 0, creditTotal = 0;
+      const monthlySummary = {};
 
-    @media(max-width:768px){
-      nav { flex-direction: column; gap: 15px; }
-      .hero h1 { font-size: 2.2rem; }
-      .upload-section { padding: 40px 20px; }
-      .charts { flex-direction: column; align-items: center; }
-    }
-  </style>
-</head>
-<body>
+      json.forEach(row => {
+        let date = row.Date ? new Date(row.Date) : null;
 
-  <!-- Navbar -->
-  <nav>
-    <div class="logo">AUDACITY ZONE</div>
-    <ul>
-      <li><a href="#upload">Upload</a></li>
-      <li><a href="#summary">Dashboard</a></li>
-      <li><a href="#contact">Contact</a></li>
-    </ul>
-    <a href="#" class="btn">Get Started</a>
-  </nav>
+        // Parse Debit/Credit as float safely
+        const debit = parseFloat(row.Debit) || 0;
+        const credit = parseFloat(row.Credit) || 0;
 
-  <!-- Hero Section -->
-  <section class="hero">
-    <h1>Upload Your Bank Statement for Instant Insights</h1>
-    <p>Excel, CSV, or PDF. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
-    <a href="#upload" class="hero-btn">Start Now</a>
-  </section>
+        debitTotal += debit;
+        creditTotal += credit;
 
-  <!-- Upload Section -->
-  <section class="upload-section" id="upload">
-    <h2>Upload Bank Statement</h2>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
-    <br>
-    <input type="text" id="statementName" placeholder="Enter Bank Statement Name">
-    <br>
-    <button onclick="analyzeStatement()">Analyze</button>
-
-    <div class="summary" id="summary">
-      <h3>Summary & Insights</h3>
-      <pre id="output">No statement analyzed yet.</pre>
-
-      <div class="charts">
-        <div class="chart-card">
-          <canvas id="barChart"></canvas>
-        </div>
-        <div class="chart-card">
-          <canvas id="pieChart"></canvas>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer id="contact">
-    <p>&copy; 2025 AUDACITY ZONE. All rights reserved.</p>
-    <p>Follow us on <a href="#">Twitter</a> | <a href="#">LinkedIn</a> | <a href="#">Facebook</a></p>
-  </footer>
-
-  <!-- JavaScript -->
-  <script>
-    let barChartInstance, pieChartInstance;
-
-    async function analyzeStatement() {
-      const fileInput = document.getElementById('fileInput');
-      const statementName = document.getElementById('statementName').value.trim();
-      const output = document.getElementById('output');
-
-      if (!fileInput.files.length) {
-        output.textContent = "Please select a file to analyze.";
-        return;
-      }
-      if (!statementName) {
-        output.textContent = "Please enter a name for your statement.";
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-
-      output.textContent = `Analyzing "${statementName}"… Please wait.`;
-
-      try {
-        const res = await fetch("http://localhost:8000/analyze-file", { method: "POST", body: formData });
-        const data = await res.json();
-
-        // Display AI summary
-        if (data.summary) {
-          output.textContent = `AI Summary:\n${data.summary}\n\nTotal Debit: ${data.total_debit}\nTotal Credit: ${data.total_credit}`;
-          renderCharts(data);
-        } else if (data.ai_output) {
-          output.textContent = `AI Extracted Text:\n${data.ai_output}`;
-        } else {
-          output.textContent = JSON.stringify(data, null, 2);
+        if (date) {
+          const monthKey = `${date.getFullYear()}-${("0"+(date.getMonth()+1)).slice(-2)}`;
+          if (!monthlySummary[monthKey]) monthlySummary[monthKey] = { Debit:0, Credit:0 };
+          monthlySummary[monthKey].Debit += debit;
+          monthlySummary[monthKey].Credit += credit;
         }
-      } catch(err) {
-        output.textContent = "❌ Error: " + err.message;
+      });
+
+      output.textContent += `\nTotal Debit: ${debitTotal}\nTotal Credit: ${creditTotal}\n`;
+      output.textContent += `\nMonthly Summary:\n${JSON.stringify(monthlySummary, null, 2)}\n`;
+
+      renderCharts(monthlySummary, debitTotal, creditTotal);
+
+    } else if (file.name.endsWith(".pdf")) {
+      const pdfData = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      let pdfText = "";
+
+      for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item => item.str);
+        pdfText += strings.join(" ") + "\n";
       }
+
+      output.textContent += pdfText;
+      output.textContent += `[Extracted text from first 3 pages]\n`;
+    } else {
+      output.textContent += "Unsupported file type.";
     }
+  } catch (err) {
+    output.textContent += `Error analyzing file: ${err.message}`;
+  }
+}
 
-    function renderCharts(data) {
-      const months = Object.keys(data.monthlySummary || {}).sort();
-      const debitData = months.map(m => data.monthlySummary[m].Debit);
-      const creditData = months.map(m => data.monthlySummary[m].Credit);
+function renderCharts(monthlySummary, totalDebit, totalCredit) {
+  const months = Object.keys(monthlySummary).sort();
+  const debitData = months.map(m => monthlySummary[m].Debit);
+  const creditData = months.map(m => monthlySummary[m].Credit);
 
-      const barCtx = document.getElementById('barChart').getContext('2d');
-      if (barChartInstance) barChartInstance.destroy();
-      barChartInstance = new Chart(barCtx, {
-        type: 'bar',
-        data: {
-          labels: months,
-          datasets: [
-            { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
-            { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
-          ]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'top' } } }
-      });
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  if (barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
+        { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+  });
 
-      const pieCtx = document.getElementById('pieChart').getContext('2d');
-      if (pieChartInstance) pieChartInstance.destroy();
-      pieChartInstance = new Chart(pieCtx, {
-        type: 'pie',
-        data: {
-          labels: ['Total Debit', 'Total Credit'],
-          datasets: [{ data: [data.total_debit || 0, data.total_credit || 0], backgroundColor: ['#ff6384','#36a2eb'] }]
-        },
-        options: { responsive: true }
-      });
-    }
-  </script>
-</body>
-</html>
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  if (pieChartInstance) pieChartInstance.destroy();
+  pieChartInstance = new Chart(pieCtx, {
+    type: 'pie',
+    data: {
+      labels: ['Total Debit', 'Total Credit'],
+      datasets: [{ data: [totalDebit, totalCredit], backgroundColor: ['#ff6384','#36a2eb'] }]
+    },
+    options: { responsive: true }
+  });
+}
+</script>
