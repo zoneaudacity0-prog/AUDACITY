@@ -1,674 +1,80 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AUDACITY ZONE — Financial Agent (Frontend)</title>
-
-  <!-- Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.140/pdf.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  <meta charset="UTF-8">
+  <title>AI Financial Analysis Agent</title>
   <style>
-    :root{
-      --blue:#0d6efd; --muted:#6b7280; --card:#fff; --bg:#f5f8ff;
-      --radius:12px; --container:1150px;
+    body {
+      font-family: Arial;
+      background: #f3f4f6;
+      padding: 30px;
     }
-    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-    body{margin:0;background:linear-gradient(180deg,#f7fbff,#eef6ff);color:#0b1220;-webkit-font-smoothing:antialiased}
-    .wrap{max-width:var(--container);margin:22px auto;padding:18px;}
-    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-    .brand{display:flex;gap:12px;align-items:center}
-    .logo{background:var(--blue);color:#fff;padding:10px;border-radius:10px;font-weight:700}
-    h1{font-size:1.05rem;margin:0}
-    .muted{color:var(--muted);font-size:0.95rem}
-
-    /* layout */
-    .grid{display:grid;grid-template-columns: 1fr 420px;gap:18px;align-items:start}
-    .panel{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 30px rgba(8,18,46,0.06)}
-    .full{grid-column:1/-1}
-
-    /* controls */
-    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    input[type=file]{padding:6px}
-    input[type=text],select,button{padding:10px;border-radius:10px;border:1px solid #e6eefc}
-    button{background:var(--blue);color:#fff;border:0;cursor:pointer;font-weight:700}
-    .secondary{background:#eef6ff;color:var(--blue);border:1px solid rgba(13,110,253,0.08)}
-
-    /* mapping & preview */
-    .mapping{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    select{min-width:160px}
-    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
-    th,td{padding:8px;border-bottom:1px solid #f1f6fb;text-align:left}
-    .preview{max-height:260px;overflow:auto;border-radius:10px;padding:6px;border:1px solid #eef6ff}
-
-    /* charts */
-    .stats{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-    .stat{flex:1 1 120px;padding:10px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfdff);text-align:center}
-    .stat h4{margin:0;font-size:12px;color:var(--muted)}
-    .stat p{margin:6px 0 0 0;font-weight:800;font-size:18px}
-
-    /* chat */
-    .chat{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-    .messages{max-height:260px;overflow:auto;padding:8px;border-radius:8px;background:#f8fbff;border:1px solid #eef6ff}
-    .msg{padding:8px;border-radius:8px;margin-bottom:8px}
-    .msg.user{background:#e8f0ff;align-self:flex-end}
-    .msg.bot{background:#fff}
-
-    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
-
-    @media (max-width:980px){.grid{grid-template-columns:1fr}.brand h1{display:none}}
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    #resultBox {
+      margin-top: 20px;
+      background: #f9fafb;
+      padding: 20px;
+      border-radius: 8px;
+      display: none;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover { background: #1e40af; }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand">
-        <div class="logo">AZ</div>
-        <div>
-          <h1>AUDACITY ZONE — Financial Agent (Frontend)</h1>
-          <div class="muted">Client UI for Option B — requires backend (upload, OCR, LLM)</div>
-        </div>
-      </div>
+  <div class="container">
+    <h2>AI Financial Analysis Agent</h2>
+    <p>Upload PDF / Excel / CSV and get instant financial insights.</p>
 
-      <div>
-        <span class="muted">Backend: <strong id="apiBaseLabel">/api</strong></span>
-      </div>
-    </header>
+    <input type="file" id="fileInput"><br><br>
+    <button onclick="uploadFile()">Analyze</button>
 
-    <main class="grid">
-      <!-- Left: Upload / mapping / preview -->
-      <section class="panel" id="leftPanel">
-        <h3>1) Upload statement (CSV / XLSX / PDF / Image)</h3>
-        <div class="controls">
-          <input id="fileInput" type="file" accept=".csv,.xls,.xlsx,.pdf,image/*" />
-          <input id="statementName" type="text" placeholder="Statement name (e.g. Intergo Nov 2025)" />
-          <button id="uploadBtn">Upload to backend</button>
-          <button id="localParseBtn" class="secondary" title="Parse locally without backend">Parse Locally</button>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center">
-          <div class="muted" id="status">Status: Idle</div>
-          <div>
-            <button id="startAnalysisBtn" class="secondary">Start Analysis</button>
-          </div>
-        </div>
-
-        <div class="mapping" id="mappingArea" style="display:none">
-          <select id="mapDate"><option value="">Date column — auto</option></select>
-          <select id="mapDesc"><option value="">Description column — auto</option></select>
-          <select id="mapDebit"><option value="">Debit column — auto</option></select>
-          <select id="mapCredit"><option value="">Credit column — auto</option></select>
-          <button id="applyMapBtn" class="secondary">Apply mapping</button>
-        </div>
-
-        <div style="margin-top:12px">
-          <div class="muted">Preview (first rows):</div>
-          <div class="preview" id="previewBox">
-            <table id="previewTable"><thead id="previewHead"></thead><tbody id="previewBody"></tbody></table>
-          </div>
-        </div>
-
-        <div style="margin-top:12px">
-          <button id="downloadRawBtn" class="secondary">Download JSON (raw parsed)</button>
-          <button id="downloadProcessedBtn" class="secondary">Download CSV (processed)</button>
-        </div>
-      </section>
-
-      <!-- Right: Summary / charts / chat -->
-      <aside class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h3 style="margin:0">2) Summary & Chat</h3>
-          <div class="muted" id="rowsInfo">Rows: 0</div>
-        </div>
-
-        <div class="stats" id="statsArea">
-          <div class="stat">
-            <h4>Total Debit</h4>
-            <p id="totalDebit">—</p>
-          </div>
-          <div class="stat">
-            <h4>Total Credit</h4>
-            <p id="totalCredit">—</p>
-          </div>
-          <div class="stat">
-            <h4>Net</h4>
-            <p id="netAmount">—</p>
-          </div>
-        </div>
-
-        <div style="margin-top:12px">
-          <canvas id="barChart" style="max-height:200px"></canvas>
-        </div>
-
-        <div class="chat">
-          <div class="muted">Ask the AI about this analysis (requires backend LLM)</div>
-          <div class="messages" id="messages"></div>
-          <div style="display:flex;gap:8px">
-            <input id="userQuestion" type="text" placeholder="e.g. What are top 3 risks?" style="flex:1" />
-            <button id="askBtn">Ask</button>
-          </div>
-        </div>
-      </aside>
-
-      <!-- Full width: Analysis output -->
-      <section class="panel full">
-        <h3>3) Analysis output / logs</h3>
-        <pre id="log" style="max-height:360px;overflow:auto;background:#fbfdff;padding:12px;border-radius:8px;border:1px solid #eef6ff">No analysis yet.</pre>
-      </section>
-    </main>
-
-    <footer class="muted">© <span id="year"></span> AUDACITY ZONE • Frontend for Option B.</footer>
+    <div id="resultBox"></div>
   </div>
 
-  <script>
-    /**************************************************************************
-     * CONFIG
-     * Update API_BASE to match your backend host/port. Include protocol (http://).
-     * If your backend requires auth, set AUTH_HEADER with the token value (e.g., "Bearer xxxxx").
-     *
-     * Endpoints expected on the backend:
-     * POST   {API_BASE}/api/v1/upload            -> returns { upload_id, filename, ... }
-     * GET    {API_BASE}/api/v1/uploads/{id}/preview -> returns parsed preview and headers
-     * POST   {API_BASE}/api/v1/uploads/{id}/confirm -> body {upload_id, company_id, mapping?} returns {analysis_id}
-     * GET    {API_BASE}/api/v1/analyses/{analysis_id} -> returns analysis results when ready
-     * POST   {API_BASE}/api/v1/analyses/{analysis_id}/ask -> body {question} -> returns {answer}
-     *
-     * If you prefer different routes, update the fetch URLs below.
-     **************************************************************************/
-
-    const API_BASE = ''; // e.g. 'http://localhost:8000' ; leave empty to attempt local-only parsing fallback
-    const AUTH_HEADER = ''; // e.g. 'Bearer xxxxx' or '' if no auth required
-
-    document.getElementById('apiBaseLabel').textContent = API_BASE || '[local-only]';
-    document.getElementById('year').textContent = new Date().getFullYear();
-
-    // Short helpers
-    const $ = (id) => document.getElementById(id);
-    const log = (txt) => {
-      const el = $('log');
-      el.textContent = `${new Date().toISOString()} — ${txt}\n\n` + el.textContent;
-      console.log(txt);
-    };
-    const status = (txt) => { $('status').textContent = 'Status: ' + txt; log(txt); };
-
-    // State
-    let uploaded = null;          // backend upload info {upload_id, filename}
-    let parsedRows = [];          // array of parsed rows (last preview)
-    let headers = [];             // header order
-    let mapping = {date:null,desc:null,debit:null,credit:null};
-    let analysisId = null;        // id returned by backend for analysis
-
-    // Chart
-    let barChart = null;
-
-    // Elements
-    const fileInput = $('fileInput');
-    const uploadBtn = $('uploadBtn');
-    const localParseBtn = $('localParseBtn');
-    const previewHead = $('previewHead');
-    const previewBody = $('previewBody');
-    const mapDate = $('mapDate');
-    const mapDesc = $('mapDesc');
-    const mapDebit = $('mapDebit');
-    const mapCredit = $('mapCredit');
-    const applyMapBtn = $('applyMapBtn');
-    const startAnalysisBtn = $('startAnalysisBtn');
-    const downloadRawBtn = $('downloadRawBtn');
-    const downloadProcessedBtn = $('downloadProcessedBtn');
-
-    // Chat
-    const askBtn = $('askBtn');
-    const userQuestion = $('userQuestion');
-    const messages = $('messages');
-
-    // Utility: safe number parsing (strip currency chars)
-    function safeNum(val){
-      if (val === null || val === undefined || val === '') return 0;
-      const s = String(val).replace(/[\s,]/g,'').replace(/[^\d\.\-]/g,'');
-      if (!s) return 0;
-      const n = parseFloat(s);
-      return Number.isFinite(n) ? n : 0;
+<script>
+function uploadFile() {
+    let fileInput = document.getElementById("fileInput");
+    if (!fileInput.files.length) {
+        alert("Please upload a file");
+        return;
     }
-    function fmt(n){ return new Intl.NumberFormat().format(Math.round((n+Number.EPSILON)*100)/100); }
 
-    // Upload file to backend (multipart)
-    uploadBtn.addEventListener('click', async ()=>{
-      const f = fileInput.files[0];
-      if (!f) { status('Select a file first'); return; }
-      const name = document.getElementById('statementName').value.trim() || f.name;
-      if (!API_BASE) { status('API_BASE not set — frontend configured for local-only mode. Use "Parse Locally".'); return; }
+    let formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-      status('Uploading file to backend...');
-      const fd = new FormData();
-      fd.append('file', f);
-      // optional: include statement name/company id
-      fd.append('statement_name', name);
+    let box = document.getElementById("resultBox");
+    box.style.display = "block";
+    box.innerHTML = "Analyzing… Please wait.";
 
-      try {
-        const res = await fetch(`${API_BASE}/api/v1/upload`, {
-          method: 'POST',
-          headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {},
-          body: fd
-        });
-        if (!res.ok) {
-          const t = await res.text(); throw new Error(`Upload failed: ${res.status} ${t}`);
-        }
-        uploaded = await res.json();
-        status('Upload successful, id: ' + (uploaded.upload_id || uploaded.id || uploaded.uploadId));
-        // Map upload_id key variance
-        uploaded.upload_id = uploaded.upload_id || uploaded.id || uploaded.uploadId;
-        // fetch preview
-        await fetchPreview();
-      } catch (err){
-        status('Upload error: ' + err.message);
-      }
+    fetch("http://localhost:8000/analyze-file", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        box.innerHTML = "<h3>Analysis Result</h3><pre>" + JSON.stringify(data, null, 2) + "</pre>";
+    })
+    .catch(err => {
+        box.innerHTML = "❌ Error: " + err;
     });
-
-    // Fetch preview from backend
-    async function fetchPreview(){
-      if (!uploaded || !uploaded.upload_id) { status('No upload id'); return; }
-      status('Requesting backend preview...');
-      try {
-        const res = await fetch(`${API_BASE}/api/v1/uploads/${uploaded.upload_id}/preview`, {
-          headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {}
-        });
-        if (!res.ok) {
-          const t = await res.text(); throw new Error(`Preview fetch failed: ${res.status} ${t}`);
-        }
-        const data = await res.json();
-        // expect data: {headers: [...], sample_rows: [...], detected_mapping: {...} }
-        headers = data.headers || (data.preview && data.preview.headers) || Object.keys((data.sample_rows && data.sample_rows[0]) || {}) || [];
-        parsedRows = data.sample_rows || data.preview?.rows || data.rows || [];
-        mapping = data.detected_mapping || data.mapping || {date:null,desc:null,debit:null,credit:null};
-        populatePreview();
-        populateMappingSelects();
-        status('Preview loaded from backend.');
-      } catch (err){
-        status('Preview error: ' + err.message);
-      }
-    }
-
-    // Start analysis: confirm mapping & request backend to run heavy tasks (OCR, LLM)
-    startAnalysisBtn.addEventListener('click', async ()=>{
-      if (!uploaded || !uploaded.upload_id) { status('Upload to backend first (or use local parse)'); return; }
-      status('Starting analysis on backend...');
-      try {
-        const body = { upload_id: uploaded.upload_id, company_id: 'company_1', mapping };
-        const res = await fetch(`${API_BASE}/api/v1/uploads/${uploaded.upload_id}/confirm`, {
-          method: 'POST',
-          headers: Object.assign({'Content-Type':'application/json'}, AUTH_HEADER ? {'Authorization': AUTH_HEADER} : {}),
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) {
-          const t = await res.text(); throw new Error(`Confirm failed: ${res.status} ${t}`);
-        }
-        const j = await res.json();
-        // backend should return an analysis id or reuse upload_id as analysis id
-        analysisId = j.analysis_id || j.id || j.analysisId || uploaded.upload_id;
-        status('Analysis started. Polling for results: ' + analysisId);
-        pollAnalysis(analysisId);
-      } catch (err){
-        status('Start analysis error: ' + err.message);
-      }
-    });
-
-    // Polling for analysis results
-    async function pollAnalysis(id, interval = 2500, timeout = 5*60*1000){
-      const started = Date.now();
-      status('Polling for analysis result...');
-      while (Date.now() - started < timeout) {
-        try {
-          const res = await fetch(`${API_BASE}/api/v1/analyses/${id}`, { headers: AUTH_HEADER ? { 'Authorization': AUTH_HEADER } : {} });
-          if (res.status === 200) {
-            const j = await res.json();
-            // expected j: {id, metrics, report (string or json), charts, transactions}
-            handleAnalysisResult(j);
-            return;
-          } else if (res.status === 202 || res.status === 204) {
-            // still processing
-            status('Analysis processing... (server returned ' + res.status + ')');
-          } else {
-            // other code -> maybe not ready, log text
-            const t = await res.text();
-            status(`Polling returned ${res.status}: ${t}`);
-          }
-        } catch (err) {
-          status('Polling error: ' + err.message);
-        }
-        await new Promise(r => setTimeout(r, interval));
-      }
-      status('Polling timed out after ' + Math.round(timeout/1000) + 's');
-    }
-
-    // Handler once analysis result is ready
-    function handleAnalysisResult(json){
-      status('Analysis complete — rendering results.');
-      // Example expected structure:
-      // { id, company_id, metrics: {gross_margin, net_margin, current_ratio...}, report: {executive_summary, top_issues, recommended_actions}, transactions: [...], charts: {monthly: {...}} }
-      log('Analysis result: ' + JSON.stringify(json, null, 2));
-      // render metrics if present
-      if (json.metrics){
-        $('totalDebit').textContent = json.metrics.total_debit ? fmt(json.metrics.total_debit) : (json.metrics.debit_total ? fmt(json.metrics.debit_total) : '—');
-        $('totalCredit').textContent = json.metrics.total_credit ? fmt(json.metrics.total_credit) : (json.metrics.credit_total ? fmt(json.metrics.credit_total) : '—');
-        const net = (safeNum(json.metrics.total_credit || json.metrics.credit_total) - safeNum(json.metrics.total_debit || json.metrics.debit_total));
-        $('netAmount').textContent = fmt(net);
-      }
-      // if transactions provided, use them for preview/charts
-      if (json.transactions && json.transactions.length){
-        parsedRows = json.transactions;
-        headers = Object.keys(parsedRows[0] || {});
-        populatePreview();
-        renderBarFromTransactions(parsedRows);
-      } else if (json.charts && json.charts.monthly){
-        const months = Object.keys(json.charts.monthly).sort();
-        const debitData = months.map(m => json.charts.monthly[m].debit || 0);
-        const creditData = months.map(m => json.charts.monthly[m].credit || 0);
-        renderBarChart(months, debitData, creditData);
-      }
-      // render report text if available
-      const reportText = json.report ? (typeof json.report === 'string' ? json.report : JSON.stringify(json.report, null, 2)) : JSON.stringify(json, null, 2);
-      $('log').textContent = reportText + '\n\n' + $('log').textContent;
-      analysisId = json.id || analysisId;
-    }
-
-    // Ask question to analysis / LLM
-    askBtn.addEventListener('click', async ()=>{
-      const q = userQuestion.value.trim();
-      if (!q) return;
-      if (!analysisId) { status('No analysis available to ask. Run analysis first.'); return; }
-      addMessage('user', q);
-      userQuestion.value = '';
-      status('Sending question to backend LLM...');
-      try {
-        const res = await fetch(`${API_BASE}/api/v1/analyses/${analysisId}/ask`, {
-          method: 'POST',
-          headers: Object.assign({'Content-Type':'application/json'}, AUTH_HEADER ? {'Authorization': AUTH_HEADER} : {}),
-          body: JSON.stringify({ question: q })
-        });
-        if (!res.ok) { const t = await res.text(); throw new Error('LLM ask failed: ' + t); }
-        const j = await res.json();
-        const answer = j.answer || j.text || j.message || JSON.stringify(j, null, 2);
-        addMessage('bot', answer);
-        status('LLM answered.');
-      } catch (err){
-        status('LLM error: ' + err.message);
-        addMessage('bot', 'Error: ' + err.message);
-      }
-    });
-
-    function addMessage(kind, text){
-      const el = document.createElement('div');
-      el.className = 'msg ' + (kind === 'user' ? 'user' : 'bot');
-      el.textContent = text;
-      messages.appendChild(el);
-      messages.scrollTop = messages.scrollHeight;
-    }
-
-    /***********************
-     * Local parsing fallback (useful for dev/test)
-     ***********************/
-    localParseBtn.addEventListener('click', async ()=>{
-      const f = fileInput.files[0];
-      if (!f) { status('Select a file first'); return; }
-      status('Parsing locally (client-side) — this is a fallback for testing.');
-      try {
-        if (/\.(xls|xlsx|csv)$/i.test(f.name)) {
-          const arr = await f.arrayBuffer();
-          const wb = XLSX.read(arr, {type:'array'});
-          const sheet = wb.SheetNames[0];
-          const json = XLSX.utils.sheet_to_json(wb.Sheets[sheet], {defval:''});
-          if (!json.length) throw new Error('No rows found in sheet.');
-          parsedRows = json;
-          headers = Object.keys(parsedRows[0]);
-          mapping = {}; // leave to auto-detect / user mapping
-          populatePreview();
-          populateMappingSelects();
-          computeLocalSummaryAndRender();
-          status('Local parse complete.');
-        } else if (/\.pdf$/i.test(f.name) || f.type.startsWith('image/')) {
-          // Try to extract text using pdf.js (digital) OR show image URL for OCR later
-          if (/\.pdf$/i.test(f.name)) {
-            const uint8 = new Uint8Array(await f.arrayBuffer());
-            const pdf = await pdfjsLib.getDocument({data:uint8}).promise;
-            let text = '';
-            const pages = Math.min(pdf.numPages, 6);
-            for (let i=1;i<=pages;i++){
-              const page = await pdf.getPage(i);
-              const content = await page.getTextContent();
-              text += content.items.map(it => it.str).join(' ') + '\n';
-            }
-            // very naive: split into lines and try to extract date+amount lines
-            const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-            const dateRegex = /(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/;
-            const amountRegex = /(-?\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d+)?)/g;
-            const rows = [];
-            for (const ln of lines){
-              if (dateRegex.test(ln) && amountRegex.test(ln)){
-                const date = ln.match(dateRegex)[0];
-                const amounts = [...ln.matchAll(amountRegex)].map(m => m[0]);
-                const amt = amounts[amounts.length-1];
-                const desc = ln.replace(date,'').replace(amt,'').trim();
-                rows.push({Date: date, Description: desc, Amount: amt});
-              }
-            }
-            if (!rows.length) throw new Error('No transactional lines detected in PDF text. For scanned images you need OCR (server side).');
-            parsedRows = rows;
-            headers = Object.keys(rows[0]);
-            populatePreview();
-            populateMappingSelects();
-            computeLocalSummaryAndRender();
-            status('Local PDF parse complete.');
-          } else {
-            // image file: can't OCR without Tesseract or server; show message
-            parsedRows = []; headers = [];
-            populatePreview();
-            status('Image uploaded. Images require OCR (server-side or Tesseract). Use backend with OCR enabled.');
-          }
-        } else {
-          throw new Error('Unsupported file type for local parsing.');
-        }
-      } catch (err){
-        status('Local parse error: ' + err.message);
-      }
-    });
-
-    // Populate preview table
-    function populatePreview(limit=8){
-      previewHead.innerHTML = '';
-      previewBody.innerHTML = '';
-      if (!headers.length) {
-        previewBody.innerHTML = '<tr><td style="padding:10px">No parsed data</td></tr>'; return;
-      }
-      const trh = document.createElement('tr');
-      headers.forEach(h => {
-        const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
-      });
-      previewHead.appendChild(trh);
-
-      const rowsToShow = parsedRows.slice(0, limit);
-      rowsToShow.forEach(row => {
-        const tr = document.createElement('tr');
-        headers.forEach(h => {
-          const td = document.createElement('td');
-          td.textContent = row[h] === undefined || row[h] === null ? '' : String(row[h]);
-          tr.appendChild(td);
-        });
-        previewBody.appendChild(tr);
-      });
-      $('rowsInfo').textContent = 'Rows: ' + parsedRows.length;
-    }
-
-    // Populate mapping selects with headers
-    function populateMappingSelects(){
-      if (!headers.length) return;
-      [mapDate, mapDesc, mapDebit, mapCredit].forEach(s => { s.innerHTML = '<option value="">— none —</option>'; });
-      headers.forEach(h => {
-        [mapDate, mapDesc, mapDebit, mapCredit].forEach(s => {
-          const o = document.createElement('option'); o.value = h; o.textContent = h; s.appendChild(o);
-        });
-      });
-      // try heuristics to choose
-      const lc = headers.map(h => h.toLowerCase());
-      const find = (regexes)=> { for (let i=0;i<lc.length;i++){ for (const r of regexes) if (lc[i].match(r)) return headers[i]; } return ''; };
-      mapDate.value = find([/date/,/tgl/,/transaction date/]) || '';
-      mapDesc.value = find([/description|narration|particula|remarks|details/]) || '';
-      mapDebit.value = find([/debit|withdrawal|dr/]) || '';
-      mapCredit.value = find([/credit|deposit|cr/]) || '';
-      document.getElementById('mappingArea').style.display = 'flex';
-    }
-
-    applyMapBtn && applyMapBtn.addEventListener('click', ()=>{
-      mapping = {date: mapDate.value || null, desc: mapDesc.value || null, debit: mapDebit.value || null, credit: mapCredit.value || null};
-      status('Mapping applied: ' + JSON.stringify(mapping));
-      computeLocalSummaryAndRender();
-    });
-
-    // Compute local summary for charting from parsedRows (fallback)
-    function computeLocalSummaryAndRender(){
-      if (!parsedRows.length) { status('No parsed rows to summarize'); return; }
-      // Simple aggregation: sum debit/credit based on mapping or amount sign
-      let totalDebit = 0, totalCredit = 0;
-      const monthly = {};
-      parsedRows.forEach(row => {
-        let debit = mapping.debit ? safeNum(row[mapping.debit]) : 0;
-        let credit = mapping.credit ? safeNum(row[mapping.credit]) : 0;
-        let amount = 0;
-        // if amount col exists
-        for (const k of Object.keys(row)) {
-          if (k.toLowerCase().includes('amount') || k.toLowerCase().includes('amt')) { amount = safeNum(row[k]); break; }
-        }
-        // If debit/credit provided use them; else use amount sign
-        if (debit || credit) {
-          totalDebit += debit; totalCredit += credit;
-        } else if (amount) {
-          if (amount < 0) totalDebit += Math.abs(amount); else totalCredit += amount;
-        } else {
-          // try first numeric a value
-          const found = Object.values(row).map(v => safeNum(v)).find(n => n);
-          if (found) {
-            if (found < 0) totalDebit += Math.abs(found); else totalCredit += found;
-          }
-        }
-        // monthly by date if possible
-        let d = null;
-        if (mapping.date && row[mapping.date]) d = parseDateFlexible(String(row[mapping.date]));
-        else if (row.Date) d = parseDateFlexible(String(row.Date));
-        if (d) {
-          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-          if (!monthly[key]) monthly[key] = {debit:0, credit:0};
-          // allocate similarly as above
-          if (debit || credit) { monthly[key].debit += debit; monthly[key].credit += credit; }
-          else if (amount) { if (amount<0) monthly[key].debit += Math.abs(amount); else monthly[key].credit += amount; }
-          else {
-            const found = Object.values(row).map(v => safeNum(v)).find(n => n);
-            if (found) { if (found<0) monthly[key].debit += Math.abs(found); else monthly[key].credit += found; }
-          }
-        }
-      });
-      $('totalDebit').textContent = fmt(totalDebit);
-      $('totalCredit').textContent = fmt(totalCredit);
-      $('netAmount').textContent = fmt(totalCredit - totalDebit);
-
-      // chart from monthly
-      const months = Object.keys(monthly).sort();
-      const debitData = months.map(m => monthly[m].debit || 0);
-      const creditData = months.map(m => monthly[m].credit || 0);
-      renderBarChart(months, debitData, creditData);
-      log(`Local summary computed. Debit ${fmt(totalDebit)}, Credit ${fmt(totalCredit)}.`);
-    }
-
-    // rendering chart
-    function renderBarChart(labels, debitData, creditData){
-      const ctx = $('barChart').getContext('2d');
-      if (barChart) barChart.destroy();
-      barChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            { label: 'Debit', data: debitData, backgroundColor: 'rgba(255,99,132,0.8)' },
-            { label: 'Credit', data: creditData, backgroundColor: 'rgba(54,162,235,0.8)' }
-          ]
-        },
-        options: { responsive: true, plugins: { legend:{position:'top'} }, scales: { y:{beginAtZero:true} } }
-      });
-    }
-
-    function renderBarFromTransactions(trans){
-      // build monthly from transactions having date/amount fields
-      const monthly = {};
-      trans.forEach(t => {
-        let d = parseDateFlexible(t.date || t.Date || t.txn_date || t.transaction_date || '');
-        if (!d) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        if (!monthly[key]) monthly[key] = {debit:0,credit:0};
-        const debit = safeNum(t.debit || t.Debit || t.amount_debit || 0);
-        const credit = safeNum(t.credit || t.Credit || t.amount_credit || t.amount || 0);
-        if (debit) monthly[key].debit += debit;
-        else if (credit) monthly[key].credit += credit;
-        else if (t.amount) { const a = safeNum(t.amount); if (a < 0) monthly[key].debit += Math.abs(a); else monthly[key].credit += a; }
-      });
-      const months = Object.keys(monthly).sort();
-      const debitData = months.map(m => monthly[m].debit || 0);
-      const creditData = months.map(m => monthly[m].credit || 0);
-      renderBarChart(months, debitData, creditData);
-    }
-
-    // Downloaders
-    downloadRawBtn.addEventListener('click', ()=>{
-      if (!parsedRows.length) { status('Nothing parsed'); return; }
-      const payload = { headers, rows: parsedRows, mapping };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = (document.getElementById('statementName').value.trim() || 'statement') + '.json';
-      document.body.appendChild(a); a.click(); a.remove();
-    });
-    downloadProcessedBtn.addEventListener('click', ()=>{
-      if (!parsedRows.length) { status('Nothing parsed'); return; }
-      const csv = [headers.join(',')].concat(parsedRows.map(r => headers.map(h => `"${String(r[h]||'').replace(/"/g,'""')}"`).join(','))).join('\n');
-      const blob = new Blob([csv], {type:'text/csv'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = (document.getElementById('statementName').value.trim() || 'statement') + '_processed.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-    });
-
-    // small utils: flexible date parsing
-    function parseDateFlexible(str){
-      if (!str) return null;
-      const s = String(str).trim();
-      // try Date.parse first
-      let d = new Date(s);
-      if (!isNaN(d)) return d;
-      // replace - . with /
-      const s2 = s.replace(/\./g,'/').replace(/-/g,'/');
-      const parts = s2.match(/(\d{1,4})\/(\d{1,2})\/(\d{1,4})/);
-      if (parts){
-        const a=+parts[1], b=+parts[2], c=+parts[3];
-        if (a>31) { d=new Date(a,b-1,c); if(!isNaN(d)) return d; }
-        if (c>31) { d=new Date(c,a-1,b); if(!isNaN(d)) return d; }
-      }
-      // try dd mmm yyyy
-      const parsed = Date.parse(s);
-      if(!isNaN(parsed)) return new Date(parsed);
-      return null;
-    }
-
-    // initial debug status
-    status('Ready — configure API_BASE and AUTH_HEADER in top of file if you want to connect to backend.');
-
-    // drag & drop for convenience
-    (function enableDragDrop(){
-      document.body.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-      document.body.addEventListener('drop', e => {
-        e.preventDefault();
-        if (e.dataTransfer.files && e.dataTransfer.files.length) {
-          fileInput.files = e.dataTransfer.files;
-          status('File dropped — click Upload or Parse Locally.');
-        }
-      });
-    })();
-
-  </script>
+}
+</script>
 </body>
 </html>
