@@ -91,7 +91,11 @@ footer a {color:#0d6efd; margin:0 5px;}
 <script>
 let barChartInstance, pieChartInstance;
 
+// clean string keys
 function cleanKey(key){ return key.toString().trim().toLowerCase(); }
+
+// clean numbers (remove commas/spaces)
+function parseNumber(num){ if(!num) return 0; return parseFloat(num.toString().replace(/,/g,'').replace(/\s/g,''))||0; }
 
 async function analyzeStatement(){
   const fileInput=document.getElementById('fileInput');
@@ -109,24 +113,26 @@ async function analyzeStatement(){
     const workbook=XLSX.read(data);
     const sheetName=workbook.SheetNames[0];
     const sheet=workbook.Sheets[sheetName];
-    const json=XLSX.utils.sheet_to_json(sheet,{defval:0});
+    const json=XLSX.utils.sheet_to_json(sheet,{defval:""});
+
+    if(!json.length){ tableOutput.innerHTML="No data found in file."; return;}
 
     // detect column keys
-    const headers=json.length? Object.keys(json[0]).map(cleanKey) : [];
-    const transKey = headers.find(h => h.includes('trans date'));
-    const debitKey = headers.find(h => h.includes('debit'));
-    const creditKey = headers.find(h => h.includes('credit'));
+    const headers=Object.keys(json[0]).map(cleanKey);
+    const transKey=headers.find(h=>h.includes('trans date'));
+    const debitKey=headers.find(h=>h.includes('debit'));
+    const creditKey=headers.find(h=>h.includes('credit'));
 
     if(!transKey || !debitKey || !creditKey){
-      tableOutput.innerHTML="File does not contain required columns: TRANS DATE, DEBIT, CREDIT";
+      tableOutput.innerHTML="File must contain columns: TRANS DATE, DEBIT, CREDIT";
       return;
     }
 
     const monthMap={};
     json.forEach(row=>{
-      let dateRaw = row[Object.keys(row).find(k=>cleanKey(k)===transKey)];
-      let debit = parseFloat(row[Object.keys(row).find(k=>cleanKey(k)===debitKey)]||0)||0;
-      let credit = parseFloat(row[Object.keys(row).find(k=>cleanKey(k)===creditKey)]||0)||0;
+      let dateRaw=row[Object.keys(row).find(k=>cleanKey(k)===transKey)];
+      let debit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===debitKey)]);
+      let credit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===creditKey)]);
 
       let dateObj = (dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
       if(isNaN(dateObj)) return;
@@ -148,7 +154,7 @@ async function analyzeStatement(){
       let debit=month? monthMap[month].Debit.toFixed(2) : '';
       let credit=month? monthMap[month].Credit.toFixed(2) : '';
       let date=month? monthMap[month].Date.toLocaleString('default',{month:'long', year:'numeric'}) : '';
-      let sn = (i<12 && month)? i+1 : '';
+      let sn=(i<12 && month)? i+1 : '';
       tableHTML += `<tr><td>${sn}</td><td>${month}</td><td>${date}</td><td>${debit}</td><td>${credit}</td></tr>`;
     }
 
@@ -165,9 +171,9 @@ async function analyzeStatement(){
 }
 
 function renderCharts(months,debitData,creditData){
-  const barCtx = document.getElementById('barChart').getContext('2d');
+  const barCtx=document.getElementById('barChart').getContext('2d');
   if(barChartInstance) barChartInstance.destroy();
-  barChartInstance = new Chart(barCtx,{
+  barChartInstance=new Chart(barCtx,{
     type:'bar',
     data:{labels:months,datasets:[
       {label:'Debit', data:debitData, backgroundColor:'#ff6384'},
@@ -176,9 +182,9 @@ function renderCharts(months,debitData,creditData){
     options:{responsive:true, plugins:{legend:{position:'top'}}}
   });
 
-  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  const pieCtx=document.getElementById('pieChart').getContext('2d');
   if(pieChartInstance) pieChartInstance.destroy();
-  pieChartInstance = new Chart(pieCtx,{
+  pieChartInstance=new Chart(pieCtx,{
     type:'pie',
     data:{labels:['Total Debit','Total Credit'], datasets:[{
       data:[debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)],
