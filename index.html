@@ -11,180 +11,192 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif;}
-body {background:#f7f8fa; color:#1a1a1a; line-height:1.6;}
-a {text-decoration:none; color:inherit;}
-nav {display:flex; justify-content:space-between; align-items:center; padding:20px 50px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.1); position:sticky; top:0; z-index:100;}
-.logo {font-size:1.8rem; font-weight:700; color:#0d6efd;}
-nav ul {display:flex; gap:25px; list-style:none;}
-nav ul li {font-weight:600;}
-nav ul li a:hover {color:#0d6efd;}
-.btn {padding:10px 20px; background-color:#0d6efd; color:#fff; border-radius:6px; font-weight:600;}
-.hero {display:flex; flex-direction:column; align-items:center; text-align:center; padding:80px 20px; background:#e9f2ff;}
-.hero h1 {font-size:2.8rem; font-weight:700; color:#0d6efd; margin-bottom:20px;}
-.hero p {font-size:1.2rem; max-width:600px; margin-bottom:30px;}
-.hero .hero-btn {padding:12px 25px; background:#0d6efd; color:#fff; border-radius:8px; font-weight:600;}
-.upload-section {padding:60px 50px; text-align:center;}
-.upload-section h2 {font-size:2rem; color:#0d6efd; margin-bottom:25px;}
-.upload-section input, .upload-section button {margin:10px 0; padding:12px; border-radius:6px; border:1px solid #ccc; font-size:1rem;}
-.upload-section button {background:#0d6efd; color:#fff; border:none; cursor:pointer; transition:background 0.3s;}
-.upload-section button:hover {background:#0956c1;}
-.summary {margin-top:40px; padding:20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); max-width:900px; margin-left:auto; margin-right:auto; text-align:left;}
-.table-container {overflow-x:auto; margin-top:20px;}
-table {width:100%; border-collapse:collapse; margin-top:10px;}
-th, td {border:1px solid #ccc; padding:8px; text-align:center;}
-th {background-color:#0d6efd; color:#fff;}
-tr:nth-child(even) {background-color:#f2f2f2;}
-.charts {display:flex; flex-wrap:wrap; gap:30px; justify-content:center; margin-top:30px;}
-.chart-card {background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); width:400px;}
-footer {background:#1a1a1a; color:#fff; padding:40px; text-align:center;}
-footer a {color:#0d6efd; margin:0 5px;}
-@media(max-width:768px){nav{flex-direction:column; gap:15px;}.hero h1{font-size:2.2rem;}.upload-section{padding:40px 20px;}.charts{flex-direction:column; align-items:center;}}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background: #f7f8fa; color: #1a1a1a; line-height: 1.6; }
+a { text-decoration: none; color: inherit; }
+/* Navbar */
+nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 50px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+.logo { font-size: 1.8rem; font-weight: 700; color: #0d6efd; }
+nav ul { display: flex; gap: 25px; list-style: none; }
+nav ul li { font-weight: 600; }
+nav ul li a:hover { color: #0d6efd; }
+.btn { padding: 10px 20px; background-color: #0d6efd; color: #fff; border-radius: 6px; font-weight: 600; }
+/* Hero */
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 80px 20px; background: #e9f2ff; }
+.hero h1 { font-size: 2.8rem; font-weight: 700; color: #0d6efd; margin-bottom: 20px; }
+.hero p { font-size: 1.2rem; max-width: 600px; margin-bottom: 30px; }
+.hero .hero-btn { padding: 12px 25px; background: #0d6efd; color: #fff; border-radius: 8px; font-weight: 600; }
+/* Upload Section */
+.upload-section { padding: 60px 50px; text-align: center; }
+.upload-section h2 { font-size: 2rem; color: #0d6efd; margin-bottom: 25px; }
+.upload-section input, .upload-section button { margin: 10px 0; padding: 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; }
+.upload-section button { background: #0d6efd; color: #fff; border: none; cursor: pointer; transition: background 0.3s; }
+.upload-section button:hover { background: #0956c1; }
+/* Summary Section */
+.summary { margin-top: 40px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 900px; margin-left: auto; margin-right: auto; text-align: left; }
+/* Table */
+.table-container { overflow-x:auto; margin-top:20px; }
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align:center; }
+th { background-color: #0d6efd; color: #fff; }
+tr:nth-child(even) { background-color: #f2f2f2; }
+/* Dashboard Charts */
+.charts { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; margin-top: 30px; }
+.chart-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 400px; }
+/* Footer */
+footer { background: #1a1a1a; color: #fff; padding: 40px; text-align: center; }
+footer a { color: #0d6efd; margin: 0 5px; }
+
+@media(max-width:768px){
+  nav { flex-direction: column; gap: 15px; }
+  .hero h1 { font-size: 2.2rem; }
+  .upload-section { padding: 40px 20px; }
+  .charts { flex-direction: column; align-items: center; }
+}
 </style>
 </head>
 <body>
 
+<!-- Navbar -->
 <nav>
-<div class="logo">AUDACITY ZONE</div>
-<ul>
-<li><a href="#upload">Upload</a></li>
-<li><a href="#summary">Dashboard</a></li>
-<li><a href="#contact">Contact</a></li>
-</ul>
-<a href="#" class="btn">Get Started</a>
+  <div class="logo">AUDACITY ZONE</div>
+  <ul>
+    <li><a href="#upload">Upload</a></li>
+    <li><a href="#summary">Dashboard</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <a href="#" class="btn">Get Started</a>
 </nav>
 
+<!-- Hero Section -->
 <section class="hero">
-<h1>Upload Your Bank Statement for Instant Insights</h1>
-<p>Excel or CSV. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
-<a href="#upload" class="hero-btn">Start Now</a>
+  <h1>Upload Your Bank Statement for Instant Insights</h1>
+  <p>Excel or CSV. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
+  <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
+<!-- Upload Section -->
 <section class="upload-section" id="upload">
-<h2>Upload Bank Statement</h2>
-<input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
-<br>
-<input type="text" id="statementName" placeholder="Enter Bank Statement Name">
-<br>
-<button onclick="analyzeStatement()">Analyze</button>
+  <h2>Upload Bank Statement</h2>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+  <br>
+  <input type="text" id="statementName" placeholder="Enter Bank Statement Name">
+  <br>
+  <button onclick="analyzeStatement()">Analyze</button>
 
-<div class="summary" id="summary">
-<h3>Summary & Insights</h3>
-<div id="tableOutput">No statement analyzed yet.</div>
+  <div class="summary" id="summary">
+    <h3>Summary & Insights</h3>
+    <div id="tableOutput">No statement analyzed yet.</div>
 
-<div class="charts">
-<div class="chart-card">
-<canvas id="barChart"></canvas>
-</div>
-<div class="chart-card">
-<canvas id="pieChart"></canvas>
-</div>
-</div>
-</div>
+    <div class="charts">
+      <div class="chart-card">
+        <canvas id="barChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+  </div>
 </section>
 
+<!-- Footer -->
 <footer id="contact">
-<p>&copy; 2025 AUDACITY ZONE. All rights reserved.</p>
-<p>Follow us on <a href="#">Twitter</a> | <a href="#">LinkedIn</a> | <a href="#">Facebook</a></p>
+  <p>&copy; 2025 AUDACITY ZONE. All rights reserved.</p>
+  <p>Follow us on <a href="#">Twitter</a> | <a href="#">LinkedIn</a> | <a href="#">Facebook</a></p>
 </footer>
 
 <script>
 let barChartInstance, pieChartInstance;
 
-function cleanKey(key){ return key.toString().trim().toLowerCase(); }
+async function analyzeStatement() {
+  const fileInput = document.getElementById('fileInput');
+  const statementName = document.getElementById('statementName').value.trim();
+  const tableOutput = document.getElementById('tableOutput');
 
-async function analyzeStatement(){
-  const fileInput=document.getElementById('fileInput');
-  const statementName=document.getElementById('statementName').value.trim();
-  const tableOutput=document.getElementById('tableOutput');
+  if (!fileInput.files.length) {
+    tableOutput.innerHTML = "Please select a file to analyze.";
+    return;
+  }
+  if (!statementName) {
+    tableOutput.innerHTML = "Please enter a name for your statement.";
+    return;
+  }
 
-  if(!fileInput.files.length){ tableOutput.innerHTML="Please select a file to analyze."; return;}
-  if(!statementName){ tableOutput.innerHTML="Please enter a name for your statement."; return;}
+  const file = fileInput.files[0];
+  tableOutput.innerHTML = `Analyzing "${statementName}"...`;
 
-  const file=fileInput.files[0];
-  tableOutput.innerHTML=`Analyzing "${statementName}"...`;
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: 0 });
 
-  try{
-    const data=await file.arrayBuffer();
-    const workbook=XLSX.read(data);
-    const sheetName=workbook.SheetNames[0];
-    const sheet=workbook.Sheets[sheetName];
-    const json=XLSX.utils.sheet_to_json(sheet,{defval:0});
+    // Map only the necessary columns
+    const monthMap = {};
+    json.forEach(row => {
+      const dateStr = row['TRANS DATE'] || row['Trans Date'] || row['trans date'];
+      const debit = parseFloat(row['DEBIT'] || row['Debit'] || row['debit'] || 0) || 0;
+      const credit = parseFloat(row['CREDIT'] || row['Credit'] || row['credit'] || 0) || 0;
 
-    // detect column keys
-    const headers=json.length? Object.keys(json[0]).map(cleanKey) : [];
-    const transKey = headers.find(h => h.includes('trans date'));
-    const debitKey = headers.find(h => h.includes('debit'));
-    const creditKey = headers.find(h => h.includes('credit'));
+      if (!dateStr) return;
+      const date = new Date(dateStr);
+      if (isNaN(date)) return;
 
-    if(!transKey || !debitKey || !creditKey){
-      tableOutput.innerHTML="File does not contain required columns: TRANS DATE, DEBIT, CREDIT";
-      return;
-    }
-
-    const monthMap={};
-    json.forEach(row=>{
-      let dateRaw = row[Object.keys(row).find(k=>cleanKey(k)===transKey)];
-      let debit = parseFloat(row[Object.keys(row).find(k=>cleanKey(k)===debitKey)]||0)||0;
-      let credit = parseFloat(row[Object.keys(row).find(k=>cleanKey(k)===creditKey)]||0)||0;
-
-      let dateObj = (dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
-      if(isNaN(dateObj)) return;
-
-      const monthKey = `${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
-      if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0,Date:dateObj};
+      const monthKey = `${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()}`;
+      if (!monthMap[monthKey]) monthMap[monthKey] = { Debit: 0, Credit: 0, Date: date };
       monthMap[monthKey].Debit += debit;
       monthMap[monthKey].Credit += credit;
     });
 
-    const months = Object.keys(monthMap).sort((a,b)=> monthMap[a].Date - monthMap[b].Date);
+    const months = Object.keys(monthMap).sort((a,b) => monthMap[a].Date - monthMap[b].Date);
 
-    // build table
-    let tableHTML=`<div class="table-container"><table><thead>
+    // Build table
+    let tableHTML = `<div class="table-container"><table><thead>
       <tr><th>S/N</th><th>Month</th><th>Date</th><th>Debit</th><th>Credit</th></tr></thead><tbody>`;
 
-    for(let i=0;i<14;i++){
-      let month=months[i]||'';
-      let debit=month? monthMap[month].Debit.toFixed(2) : '';
-      let credit=month? monthMap[month].Credit.toFixed(2) : '';
-      let date=month? monthMap[month].Date.toLocaleString('default',{month:'long', year:'numeric'}) : '';
-      let sn = (i<12 && month)? i+1 : '';
+    for (let i = 0; i < 14; i++) {
+      let month = months[i] || '';
+      let debit = month ? monthMap[month].Debit.toFixed(2) : '';
+      let credit = month ? monthMap[month].Credit.toFixed(2) : '';
+      let date = month ? monthMap[month].Date.toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+      let sn = (i < 12 && month) ? (i+1) : '';
       tableHTML += `<tr><td>${sn}</td><td>${month}</td><td>${date}</td><td>${debit}</td><td>${credit}</td></tr>`;
     }
 
-    tableHTML+=`</tbody></table></div>`;
+    tableHTML += `</tbody></table></div>`;
     tableOutput.innerHTML = tableHTML;
 
-    const debitData = months.map(m=>monthMap[m].Debit);
-    const creditData = months.map(m=>monthMap[m].Credit);
-    renderCharts(months,debitData,creditData);
+    const debitData = months.map(m => monthMap[m].Debit);
+    const creditData = months.map(m => monthMap[m].Credit);
+    renderCharts(months, debitData, creditData);
 
-  } catch(err){
-    tableOutput.innerHTML=`Error analyzing file: ${err.message}`;
+  } catch (err) {
+    tableOutput.innerHTML = `Error analyzing file: ${err.message}`;
   }
 }
 
-function renderCharts(months,debitData,creditData){
+function renderCharts(months, debitData, creditData) {
   const barCtx = document.getElementById('barChart').getContext('2d');
-  if(barChartInstance) barChartInstance.destroy();
-  barChartInstance = new Chart(barCtx,{
-    type:'bar',
-    data:{labels:months,datasets:[
-      {label:'Debit', data:debitData, backgroundColor:'#ff6384'},
-      {label:'Credit', data:creditData, backgroundColor:'#36a2eb'}
+  if (barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(barCtx, {
+    type: 'bar',
+    data: { labels: months, datasets: [
+      { label: 'Debit', data: debitData, backgroundColor: '#ff6384' },
+      { label: 'Credit', data: creditData, backgroundColor: '#36a2eb' }
     ]},
-    options:{responsive:true, plugins:{legend:{position:'top'}}}
+    options: { responsive: true, plugins: { legend: { position: 'top' } } }
   });
 
   const pieCtx = document.getElementById('pieChart').getContext('2d');
-  if(pieChartInstance) pieChartInstance.destroy();
-  pieChartInstance = new Chart(pieCtx,{
-    type:'pie',
-    data:{labels:['Total Debit','Total Credit'], datasets:[{
-      data:[debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)],
-      backgroundColor:['#ff6384','#36a2eb']
+  if (pieChartInstance) pieChartInstance.destroy();
+  pieChartInstance = new Chart(pieCtx, {
+    type: 'pie',
+    data: { labels: ['Total Debit','Total Credit'], datasets:[{
+      data: [debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)],
+      backgroundColor: ['#ff6384','#36a2eb']
     }]},
-    options:{responsive:true}
+    options: { responsive: true }
   });
 }
 </script>
