@@ -6,7 +6,6 @@
 <title>AUDACITY ZONE — Bank Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
-<!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -57,8 +56,8 @@ footer a {color:#0d6efd; margin:0 5px;}
 </nav>
 
 <section class="hero">
-<h1>Upload Your Bank Statement for AI Auto Summation</h1>
-<p>Automatically detects Date, Debit, Credit columns, sums per month, and generates summary & charts.</p>
+<h1>Upload Bank Statement for AI Auto Summation</h1>
+<p>Automatically detects Date, Debit, Credit columns, sums per month across all sheets, and generates summary & charts.</p>
 <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
@@ -74,7 +73,6 @@ footer a {color:#0d6efd; margin:0 5px;}
 <div class="summary" id="summary">
 <h3>Summary & Insights</h3>
 <div id="tableOutput">No statement analyzed yet.</div>
-
 <div class="charts">
 <div class="chart-card">
 <canvas id="barChart"></canvas>
@@ -95,72 +93,63 @@ footer a {color:#0d6efd; margin:0 5px;}
 let barChartInstance, pieChartInstance;
 let summaryData=[];
 
-// Utility functions
-function normalizeHeader(header){ return header.toString().toLowerCase().replace(/[\s\/\\_\-]/g,''); }
+function normalizeHeader(header){ return header.toString().toLowerCase().replace(/[\s\/\\_\-\r\n]+/g,''); }
 function parseNumber(value){
     if(!value) return 0;
     value=value.toString().replace(/,/g,'').replace(/\s/g,'').replace(/TZS/gi,'').replace(/!/g,'').trim();
     return parseFloat(value)||0;
 }
-function detectColumn(headers, variations){
+function detectColumn(headers, candidates){
     for(let h of headers){
-        let normH=normalizeHeader(h);
-        for(let v of variations){
-            let normV=v.toLowerCase().replace(/[\s\/\\_\-]/g,'');
-            if(normH.includes(normV)) return h;
+        const nh=normalizeHeader(h);
+        for(let c of candidates){
+            const nc=c.toLowerCase().replace(/[\s\/\\_\-]+/g,'');
+            if(nh.includes(nc)) return h;
         }
     }
     return null;
 }
 
-// Analyze function
 async function analyzeStatement(){
     const fileInput=document.getElementById('fileInput');
     const statementName=document.getElementById('statementName').value.trim();
     const tableOutput=document.getElementById('tableOutput');
     if(!fileInput.files.length){ tableOutput.innerHTML="Please select a file."; return;}
     if(!statementName){ tableOutput.innerHTML="Please enter a statement name."; return;}
-
-    const file= fileInput.files[0];
+    
     tableOutput.innerHTML=`Analyzing "${statementName}"...`;
-
     try{
-        const data=await file.arrayBuffer();
+        const data=await fileInput.files[0].arrayBuffer();
         const workbook=XLSX.read(data);
-        const sheetName=workbook.SheetNames[0];
-        const sheet=workbook.Sheets[sheetName];
-        const json=XLSX.utils.sheet_to_json(sheet,{defval:""});
-        if(!json.length){ tableOutput.innerHTML="No data found."; return;}
-
-        const headers=Object.keys(json[0]);
-        const dateKey=detectColumn(headers,['posting date','book date','value date','trans date','transaction date','date']);
-        const debitKey=detectColumn(headers,['debit','debit amount','dr','withdrawal']);
-        const creditKey=detectColumn(headers,['credit','credit amount','cr','deposit']);
-
-        if(!dateKey || !debitKey || !creditKey){
-            tableOutput.innerHTML="Unable to detect Date, Debit, or Credit columns.";
-            return;
+        const monthMap={}; summaryData=[];
+        
+        for(let sheetName of workbook.SheetNames){
+            const sheet=workbook.Sheets[sheetName];
+            const json=XLSX.utils.sheet_to_json(sheet,{defval:""});
+            if(!json.length) continue;
+            const headers=Object.keys(json[0]);
+            const dateKey=detectColumn(headers,['posting date','book date','value date','transaction date','trans date','date']);
+            const debitKey=detectColumn(headers,['debit','debit amount','dr','withdrawal']);
+            const creditKey=detectColumn(headers,['credit','credit amount','cr','deposit']);
+            if(!dateKey || !debitKey || !creditKey) continue;
+            
+            json.forEach(row=>{
+                let dateRaw=row[dateKey];
+                let debit=parseNumber(row[debitKey]);
+                let credit=parseNumber(row[creditKey]);
+                let dateObj=(dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
+                if(isNaN(dateObj)) return;
+                const monthKey=`${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
+                if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0};
+                monthMap[monthKey].Debit+=debit;
+                monthMap[monthKey].Credit+=credit;
+            });
         }
 
-        // Monthly aggregation
-        const monthMap={};
-        summaryData=[];
-        json.forEach(row=>{
-            let dateRaw=row[dateKey];
-            let debit=parseNumber(row[debitKey]);
-            let credit=parseNumber(row[creditKey]);
-            let dateObj=(dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
-            if(isNaN(dateObj)) return;
-            const monthKey=`${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
-            if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0};
-            monthMap[monthKey].Debit+=debit;
-            monthMap[monthKey].Credit+=credit;
-        });
+        if(Object.keys(monthMap).length===0){ tableOutput.innerHTML="No recognizable data found."; return;}
 
-        // Build table
         let tableHTML=`<div class="table-container"><table><thead>
         <tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net Total</th></tr></thead><tbody>`;
-
         let totalDebit=0, totalCredit=0;
         Object.keys(monthMap).forEach((month,i)=>{
             const debit=monthMap[month].Debit;
@@ -175,12 +164,9 @@ async function analyzeStatement(){
         tableOutput.innerHTML=tableHTML;
 
         renderCharts(Object.keys(monthMap), Object.values(monthMap).map(m=>m.Debit), Object.values(monthMap).map(m=>m.Credit));
-    } catch(err){
-        tableOutput.innerHTML=`Error analyzing file: ${err.message}`;
-    }
+    }catch(err){ tableOutput.innerHTML=`Error: ${err.message}`; }
 }
 
-// Render charts
 function renderCharts(months,debitData,creditData){
     const barCtx=document.getElementById('barChart').getContext('2d');
     if(barChartInstance) barChartInstance.destroy();
@@ -205,7 +191,6 @@ function renderCharts(months,debitData,creditData){
     });
 }
 
-// Export CSV
 function exportCSV(){
     if(!summaryData.length){ alert("No data to export."); return;}
     const ws=XLSX.utils.json_to_sheet(summaryData);
