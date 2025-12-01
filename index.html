@@ -1,32 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Audacity Zone — Universal Bank Statement Analyzer</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Audacity Zone — AI Bank Statement Analyzer</title>
 
-<!-- Fonts / styles -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+<!-- Styles -->
 <style>
-  *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Segoe UI,Arial;}
-  body{background:#f4f6fb;color:#0b1220;padding:0 16px 60px;}
-  header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;}
-  .brand{font-weight:700;color:#0d6efd;font-size:1.25rem;}
-  main{max-width:1100px;margin:16px auto;}
-  .card{background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 24px rgba(10,20,40,0.06);margin-bottom:16px;}
-  .row{display:flex;gap:12px;flex-wrap:wrap;}
-  input[type=file]{padding:8px;}
-  button{background:#0d6efd;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;}
-  .muted{color:#556;}
-  .summary .table-wrap{overflow:auto;margin-top:12px;}
-  table{width:100%;border-collapse:collapse;}
-  th,td{border:1px solid #e6eef8;padding:8px;text-align:center;}
-  th{background:#0d6efd;color:#fff;font-weight:700;}
-  .charts{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;}
-  canvas{background:#fff;border-radius:6px;padding:6px;}
-  .note{margin-top:8px;color:#334;}
-  .spinner{display:inline-block;width:18px;height:18px;border:3px solid #ddd;border-top-color:#0d6efd;border-radius:50%;animation:spin 1s linear infinite;margin-left:8px;}
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Arial;margin:0;padding:0}
+  body{background:#f4f7fb;color:#0b1220;padding:18px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .brand{font-weight:700;color:#0d6efd;font-size:1.2rem}
+  .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 8px 28px rgba(12,35,70,0.06);margin-bottom:12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=file]{padding:6px}
+  button{background:#0d6efd;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+  select,input[type=text]{padding:8px;border-radius:8px;border:1px solid #e6eef8}
+  .muted{color:#556}
+  .small{font-size:0.9rem}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{border:1px solid #e6eef8;padding:8px;text-align:center}
+  th{background:#0d6efd;color:#fff}
+  .charts{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  canvas{background:#fff;border-radius:8px;padding:8px}
+  .spinner{display:inline-block;width:16px;height:16px;border:3px solid #e6eef8;border-top-color:#0d6efd;border-radius:50%;animation:spin 1s linear infinite;margin-left:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .notice{margin-top:8px;color:#334}
+  .confident{color:green;font-weight:700}
+  .warn{color:crimson;font-weight:700}
+  pre{font-family:monospace;background:#fafafa;padding:8px;border-radius:6px;max-height:220px;overflow:auto}
 </style>
 
 <!-- Libraries -->
@@ -37,56 +42,86 @@
 </head>
 <body>
 <header>
-  <div class="brand">AUDACITY ZONE — Bank Analyzer</div>
-  <div class="muted">Detects date/debit/credit, aggregates monthly, supports PDF (OCR fallback)</div>
+  <div class="brand">AUDACITY ZONE — AI Bank Analyzer</div>
+  <div class="muted small">Auto-detect Date / Debit / Credit • Excel/CSV/PDF (OCR fallback) • Monthly sums</div>
 </header>
 
 <main>
+
   <section class="card">
-    <h2>Upload statement (Excel / CSV / PDF)</h2>
-    <div class="row" style="align-items:center;margin-top:8px;">
-      <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.pdf">
-      <input id="statementName" placeholder="Statement name (e.g., MyBank Nov2025)" style="padding:10px;border-radius:8px;border:1px solid #e6eef8;flex:1;">
+    <h3>Upload statement (Excel / CSV / PDF)</h3>
+    <div class="row" style="margin-top:10px">
+      <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.pdf" />
+      <input id="statementName" type="text" placeholder="Optional name (e.g., SchoolAcct Nov2025)" style="min-width:300px" />
       <button id="analyzeBtn">Analyze</button>
-      <button id="exportBtn" style="background:#198754;">Export Summary</button>
-      <div id="status" class="muted" style="margin-left:8px;"></div>
+      <button id="exportBtn" style="background:#198754">Export Summary</button>
+      <div id="status" class="muted small" style="margin-left:auto"></div>
     </div>
-    <div class="note">Tip: Excel/CSV with real cells is fastest. PDFs with selectable text are best; scanned PDFs will use OCR (slower).</div>
+
+    <div class="controls">
+      <label class="small muted">AI Mode:</label>
+      <select id="aiMode">
+        <option value="auto">Auto-detect (recommended)</option>
+        <option value="assist">Auto + Manual override (show dropdowns)</option>
+        <option value="manual">Manual mapping only</option>
+      </select>
+
+      <label class="small muted">Confidence threshold:</label>
+      <select id="confThresh">
+        <option value="0.6">0.60</option>
+        <option value="0.5" selected>0.50</option>
+        <option value="0.4">0.40</option>
+      </select>
+    </div>
+
+    <div id="mappingUI" class="row" style="margin-top:12px;display:none">
+      <label class="small muted">Date column:</label>
+      <select id="dateSelect"></select>
+      <label class="small muted">Debit column:</label>
+      <select id="debitSelect"></select>
+      <label class="small muted">Credit column:</label>
+      <select id="creditSelect"></select>
+      <button id="applyMapping">Apply mapping</button>
+    </div>
+
+    <div class="notice small">If detection is uncertain the dropdowns appear — choose the correct columns and click <strong>Apply mapping</strong>.</div>
   </section>
 
-  <section class="card summary" id="summaryCard" style="display:none;">
-    <h3>Summary & Insights</h3>
-    <div id="tableOutput" class="table-wrap"></div>
+  <section id="summaryCard" class="card" style="display:none">
+    <h3>Monthly Summary</h3>
+    <div id="tableOutput"></div>
     <div class="charts">
-      <div style="flex:1;min-width:320px;"><canvas id="barChart" height="240"></canvas></div>
-      <div style="width:360px;"><canvas id="pieChart" height="240"></canvas></div>
+      <div style="flex:1;min-width:300px"><canvas id="barChart" height="260"></canvas></div>
+      <div style="width:360px"><canvas id="pieChart" height="260"></canvas></div>
     </div>
   </section>
 
-  <section class="card" id="rawCard" style="display:none;">
-    <h4>Parsed sample rows (first 20)</h4>
-    <div id="rawOutput" style="max-height:220px;overflow:auto;margin-top:8px;"></div>
+  <section id="rawCard" class="card" style="display:none">
+    <h4>Sample extracted rows</h4>
+    <div id="rawOutput"></div>
   </section>
+
 </main>
 
 <script>
-/* ---------- Utilities ---------- */
+/* ============================
+   Utilities & parsing helpers
+   ============================ */
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 function cleanNumeric(v){
-  if(v===null || v===undefined) return 0;
-  let s = v.toString();
-  // Remove common currency tags and letters
+  if(v===null||v===undefined) return 0;
+  let s = String(v);
+  // remove common currency text
   s = s.replace(/TZS|Tsh|TZS\.|KES|UGX|USD/gi,'');
-  // Replace parentheses = negative
-  if(/\(.+\)/.test(s)){
-    s = '-' + s.replace(/[()]/g,'');
-  }
-  // Remove anything except digits, dot, minus
-  s = s.replace(/[, ]+/g,'').trim();
-  s = s.replace(/[^\d\.\-]/g,'');
-  // handle multiple dots: keep last as decimal
+  // parentheses => negative
+  if(/\(.+\)/.test(s)){ s = '-' + s.replace(/[()]/g,''); }
+  // remove non-digit except dot and minus
+  s = s.replace(/[^\d\.\-\,]/g,'').trim();
+  // fix commas/spaces
+  s = s.replace(/,/g,'').replace(/\s/g,'');
+  // multiple dots -> keep last as decimal
   const dots = (s.match(/\./g)||[]).length;
   if(dots>1){
     const parts = s.split('.');
@@ -102,403 +137,384 @@ function tryParseDate(val){
   if(val instanceof Date && !isNaN(val)) return val;
   const s = String(val).trim();
   if(!s) return null;
-  // Normalize separators
-  const cleaned = s.replace(/\./g,'-').replace(/\//g,'-').replace(/\s+/g,' ');
-  // Try common patterns
-  // 1) dd-mm-yyyy or dd-mm-yy or dd mmm yyyy
-  const dmy = /(\d{1,2})[- ]([A-Za-z]{3,9}|\d{1,2})[- ](\d{2,4})/;
-  const iso = /(\d{4})[-](\d{1,2})[-](\d{1,2})/;
-  const timeStrip = cleaned.replace(/(\d{1,2}:\d{2}:\d{2})/,'').trim();
-  if(iso.test(cleaned)){
-    const dt = new Date(cleaned);
-    if(!isNaN(dt)) return dt;
+  // common normalizations
+  const cleaned = s.replace(/\./g,'-').replace(/\//g,'-').replace(/\s+/g,' ').trim();
+  // try ISO first
+  const iso = cleaned.match(/^\d{4}[-]\d{1,2}[-]\d{1,2}/);
+  if(iso){
+    const d = new Date(cleaned);
+    if(!isNaN(d)) return d;
   }
-  if(dmy.test(timeStrip)){
-    // if month is text, Date can parse; replace double spaces
-    const dt = new Date(timeStrip);
-    if(!isNaN(dt)) return dt;
-    // try manual parse dd-mm-yyyy
-    const m = timeStrip.match(dmy);
-    if(m){
-      let d = parseInt(m[1],10), mstr = m[2], y = parseInt(m[3],10);
-      // month may be name
-      const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
-      let mm;
-      if(isNaN(parseInt(mstr))){ mm = months[mstr.toLowerCase().substring(0,3)]; }
-      else mm = parseInt(mstr,10)-1;
-      if(typeof mm === 'number' && !isNaN(mm)){
-        if(y<100) y += 2000;
-        return new Date(y,mm,d);
-      }
-    }
+  // dd-mm-yyyy or dd mmm yyyy
+  const dmy = cleaned.match(/(\d{1,2})[- ]([A-Za-z]{3,9}|\d{1,2})[- ](\d{2,4})/);
+  if(dmy){
+    const tryDate = new Date(cleaned);
+    if(!isNaN(tryDate)) return tryDate;
+    // manual parsing when month is word
+    const day = parseInt(dmy[1],10);
+    let mon = dmy[2];
+    let year = parseInt(dmy[3],10);
+    if(year < 100) year += 2000;
+    let mm = parseInt(mon,10);
+    if(isNaN(mm)){
+      const mnames = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+      mm = mnames[mon.toLowerCase().substring(0,3)];
+    } else mm = mm-1;
+    if(!isNaN(mm)) return new Date(year, mm, day);
   }
-  // Last resort: Date parse
-  const d = new Date(cleaned);
-  if(!isNaN(d)) return d;
+  // last resort Date parse
+  const last = new Date(cleaned);
+  if(!isNaN(last)) return last;
   return null;
 }
 
-/* ---------- PDF text extraction (pdf.js) with OCR fallback (Tesseract) ---------- */
+/* ============================
+   PDF extraction with pdf.js + OCR fallback
+   ============================ */
 
 async function extractTextFromPDF(file, statusEl){
-  const arr = new Uint8Array(await file.arrayBuffer());
-  const loadingTask = pdfjsLib.getDocument({data:arr});
+  const array = new Uint8Array(await file.arrayBuffer());
+  statusEl.innerHTML = 'Opening PDF... <span class="spinner"></span>';
+  const loadingTask = pdfjsLib.getDocument({data:array});
   const pdf = await loadingTask.promise;
-  const total = pdf.numPages;
   let fullText = '';
-  for(let p=1;p<=total;p++){
-    statusEl.innerHTML = `Reading PDF page ${p}/${total} <span class="spinner"></span>`;
+  for(let p=1;p<=pdf.numPages;p++){
+    statusEl.innerHTML = `Reading page ${p}/${pdf.numPages} <span class="spinner"></span>`;
     const page = await pdf.getPage(p);
-    // try textContent first
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map(i=>i.str).join(' ');
     if(pageText && pageText.trim().length>20){
       fullText += pageText + '\n';
     } else {
-      // fallback to rasterize + OCR
-      const viewport = page.getViewport({scale:1.5});
+      // rasterize and OCR
+      statusEl.innerHTML = `OCR page ${p} (this may be slow) <span class="spinner"></span>`;
+      const viewport = page.getViewport({scale:2});
       const canvas = document.createElement('canvas');
       canvas.width = Math.floor(viewport.width);
       canvas.height = Math.floor(viewport.height);
       const ctx = canvas.getContext('2d');
-      await page.render({canvasContext:ctx, viewport:viewport}).promise;
-      // OCR using tesseract
-      statusEl.innerHTML = `Performing OCR on page ${p}/${total} (slow) <span class="spinner"></span>`;
-      const { data: { text } } = await Tesseract.recognize(canvas, 'eng', { logger: m => {
-          /* progress logs if you want */ } });
+      await page.render({canvasContext:ctx, viewport}).promise;
+      const { data: { text } } = await Tesseract.recognize(canvas, 'eng', { logger: m => {/* optional */} });
       fullText += text + '\n';
-      // free canvas
       canvas.remove();
     }
   }
-  statusEl.innerHTML = 'PDF read complete';
+  statusEl.innerText = 'PDF extraction complete';
   return fullText;
 }
 
-/* ---------- Text -> rows parser (naive tabular extraction) ---------- */
+/* ============================
+   Text -> tabular heuristics
+   ============================ */
 
-function textToRows(text){
-  // Split into lines and try to split on multiple spaces or tabs
-  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const rows = [];
-  for(const line of lines){
-    // Try to detect columns by large gaps/tabs
-    let cols = line.split(/\t+/);
-    if(cols.length<=1){
-      // split by multiple spaces (4+)
-      cols = line.split(/ {2,}/).map(s=>s.trim()).filter(Boolean);
-    }
-    // If still one column, try splitting by spaces but keep groups that look like dates or numbers
-    if(cols.length===1){
-      // fallback: split by space but attempt to rejoin common fields
-      const tokens = line.split(/\s+/).filter(Boolean);
-      rows.push(tokens);
-    } else {
-      rows.push(cols);
-    }
-  }
+function textToLines(text){
+  return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+}
+
+function lineToColumns(line){
+  // try split by tabs, then by 2+ spaces, then fallback to single spaces
+  let cols = line.split(/\t+/).map(c=>c.trim()).filter(Boolean);
+  if(cols.length<=1) cols = line.split(/ {2,}/).map(c=>c.trim()).filter(Boolean);
+  if(cols.length<=1) cols = line.split(/\s{1,}/).map(c=>c.trim()).filter(Boolean);
+  return cols;
+}
+
+function linesToRows(text){
+  const lines = textToLines(text);
+  const rows = lines.map(lineToColumns).filter(r=>r.length>0);
   return rows;
 }
 
-/* ---------- Detect columns by scanning header lines and sample rows ---------- */
-
-function detectColumnsFromRows(rows){
-  // rows: array of arrays (cells or tokens)
-  // Strategy:
-  // 1. Find header row candidate: a row with words like date, debit, credit, value, book, transaction.
-  // 2. If none, scan columns by checking each column's values for date-like or numeric-like content.
-  let headerIdx = -1;
-  const headerKeywords = ['date','transaction','trans','posting','book','value','debit','credit','amount','dr','cr'];
+function detectHeaderRow(rows){
+  const headerTerms = ['date','transaction','trans','value','posting','book','debit','credit','amount','dr','cr','narration','reference'];
   for(let i=0;i<Math.min(6,rows.length);i++){
-    const row = rows[i].join(' ').toLowerCase();
+    const joined = rows[i].join(' ').toLowerCase();
     let score = 0;
-    headerKeywords.forEach(k=> { if(row.includes(k)) score++; });
-    if(score>=2){ headerIdx = i; break;}
+    headerTerms.forEach(t=> { if(joined.includes(t)) score++; });
+    if(score >= 2) return i;
   }
-  // Build column candidates
-  let columns = [];
-  if(headerIdx>=0){
-    const headerRow = rows[headerIdx];
-    columns = headerRow.map(h=>String(h).trim());
-    // build data rows below header
-    const dataRows = [];
-    for(let r=headerIdx+1;r<rows.length;r++){
-      // ensure column length matches header length - if not, try to map heuristically later
-      dataRows.push(rows[r]);
-    }
-    return {columns, dataRows, headerIdx};
-  } else {
-    // No clear header row. Assume fixed-width style: convert each row to tokens and try to find date-like column index
-    // Build transposed columns up to first 10 tokens per row
-    const maxCols = Math.max(...rows.map(r=>Array.isArray(r)?r.length:0));
-    const transposed = Array.from({length:maxCols},()=>[]);
-    rows.forEach(r=>{
-      const arr = Array.isArray(r)?r:r;
-      for(let i=0;i<maxCols;i++){
-        transposed[i].push(arr[i]||'');
+  return -1;
+}
+
+function rowsToRecordsFromRows(rows, headerIndex){
+  if(headerIndex>=0){
+    const headers = rows[headerIndex].map(h=>String(h).trim());
+    const dataRows = rows.slice(headerIndex+1);
+    const records = dataRows.map(r=>{
+      const obj = {};
+      for(let i=0;i<headers.length;i++){
+        obj[headers[i]||('col'+i)] = r[i] !== undefined ? r[i] : '';
       }
+      return obj;
     });
-    // evaluate each transposed col for date-like and numeric-like
-    return {columns:transposed.map((_,i)=>'col'+i), dataRows:rows, headerIdx:-1, transposed};
+    return {headers, records};
+  } else {
+    // No header row: attempt to make fixed-width columns by token index
+    const maxCols = Math.max(...rows.map(r=>r.length));
+    const headers = Array.from({length:maxCols},(_,i)=>'col'+i);
+    const records = rows.map(r=>{
+      const obj = {};
+      for(let i=0;i<maxCols;i++) obj['col'+i] = r[i] || '';
+      return obj;
+    });
+    return {headers, records};
   }
 }
 
-/* ---------- High-level: attempt to build records (date, debit, credit) from either table or free text ---------- */
+/* ============================
+   Scoring based AI detection (data-driven)
+   ============================ */
 
-function rowsToRecords(columns, dataRows){
-  // columns: array of header names OR 'col0'...
-  // dataRows: array of rows (arrays or token arrays)
-  const records = [];
-  // If dataRows elements are arrays with length matching columns
-  for(const row of dataRows){
-    const arr = Array.isArray(row)?row: [row];
-    const rec = {};
-    for(let c=0;c<columns.length;c++){
-      rec[columns[c]] = arr[c]!==undefined?arr[c]:'';
-    }
-    records.push(rec);
-  }
-  return records;
-}
-
-function detectDateDebitCreditFromRecords(records){
-  // records: array of objects with keys = cols
-  // We'll check each column key and sample values for date-like / numeric-like presence.
-  const keys = Object.keys(records[0]||{});
-  const colScores = {};
-  keys.forEach(k=> colScores[k] = {date:0, numeric:0});
-  const sampleN = Math.min(records.length, 10);
+function scoreColumns(records, headers){
+  // For each header key, compute scores for date-like and numeric-like
+  const scores = {};
+  headers.forEach(h=> scores[h] = {date:0, numeric:0, samples:0});
+  const sampleN = Math.min(records.length, 20);
   for(let i=0;i<sampleN;i++){
-    const rec = records[i];
-    keys.forEach(k=>{
-      const v = rec[k];
-      if(v===null || v===undefined) return;
-      // detect date
-      if(tryParseDate(v)) colScores[k].date++;
-      // detect numeric (with currency)
-      const n = cleanNumeric(v);
-      if(Math.abs(n) > 0) colScores[k].numeric++;
+    const r = records[i];
+    headers.forEach(h=>{
+      const v = r[h];
+      if(v === undefined || v === null) return;
+      const s = String(v).trim();
+      if(!s) return;
+      scores[h].samples++;
+      if(tryParseDate(s)) scores[h].date++;
+      const n = cleanNumeric(s);
+      if(Math.abs(n) > 0) scores[h].numeric++;
     });
   }
-  // pick date column = highest date score
-  let dateCol = null;
-  let highestDate = 0;
-  keys.forEach(k=> { if(colScores[k].date > highestDate){ highestDate = colScores[k].date; dateCol = k; } });
-  // pick debit/credit columns: numeric cols highest counts
-  const numericCols = keys.map(k=>({k,score:colScores[k].numeric})).sort((a,b)=>b.score-a.score);
-  let debitCol = numericCols[0]?numericCols[0].k:null;
-  let creditCol = numericCols[1]?numericCols[1].k:null;
-  // If date not found, try to detect header names containing date-like words
-  if(!dateCol){
-    for(const k of keys){
-      if(/date|trans|posting|book|value/i.test(k)){ dateCol = k; break; }
-    }
-  }
-  // If debit/credit have header hints, prefer them
-  for(const k of keys){
-    if(/debit|dr|withdrawal|debitamount/i.test(k)){ debitCol = k; }
-    if(/credit|cr|deposit|creditamount/i.test(k)){ creditCol = k; }
-  }
-  return {dateCol, debitCol, creditCol, colScores};
+  // compute confidence = score/samples
+  const conf = headers.map(h=>{
+    const s = scores[h];
+    const dateConf = s.samples ? s.date / s.samples : 0;
+    const numConf = s.samples ? s.numeric / s.samples : 0;
+    return {header:h, dateConf, numConf, samples:s.samples};
+  });
+  return {scores, conf};
 }
 
-/* ---------- Excel/CSV processing ---------- */
+function pickBestColumns(conf, headerNames){
+  // Choose date column: highest dateConf
+  let dateCandidate = conf.slice().sort((a,b)=>b.dateConf - a.dateConf)[0];
+  // Choose numeric columns: top two by numConf
+  const numericCandidates = conf.slice().sort((a,b)=>b.numConf - a.numConf);
+  let debitCandidate = numericCandidates[0] || null;
+  let creditCandidate = numericCandidates[1] || null;
+
+  // fallback heuristics using header words
+  for(const c of conf){
+    const low = c.header.toLowerCase();
+    if(!dateCandidate || dateCandidate.dateConf < 0.5){
+      if(/date|transaction|posting|value|book/.test(low)) { dateCandidate = c; }
+    }
+    if(!debitCandidate || debitCandidate.numConf < 0.5){
+      if(/debit|dr|withdrawal|debitamount/.test(low)) debitCandidate = c;
+    }
+    if(!creditCandidate || creditCandidate.numConf < 0.5){
+      if(/credit|cr|deposit|creditamount/.test(low)) creditCandidate = c;
+    }
+  }
+  return {
+    dateCol: dateCandidate ? dateCandidate.header : null,
+    debitCol: debitCandidate ? debitCandidate.header : null,
+    creditCol: creditCandidate ? creditCandidate.header : null,
+    confidences: {dateConf: dateCandidate?dateCandidate.dateConf:0, debitConf: debitCandidate?debitCandidate.numConf:0, creditConf: creditCandidate?creditCandidate.numConf:0}
+  };
+}
+
+/* ============================
+   Excel/CSV sheet processing
+   ============================ */
 
 function processSheetJson(json){
-  // json: array of objects (SheetJS output)
-  // Quick attempt: detect columns by header names first (robust normalized match)
-  const keys = Object.keys(json[0]||{});
-  const normalize = s=>String(s||'').toLowerCase().replace(/[\s\/\\_\-\r\n]+/g,'');
-  const dateCandidates = ['postingdate','bookdate','valuedate','transactiondate','transdate','date','book date','value date'];
-  const debitCandidates = ['debit','debitamount','debit amount','dr','debit_amt','debitamt'];
-  const creditCandidates = ['credit','creditamount','credit amount','cr','credit_amt','creditamt'];
-  // try header matching
+  if(!json || !json.length) return {ok:false};
+  const headers = Object.keys(json[0]).map(h=>String(h));
+  // Simple header normalization attempt
   let dateKey=null, debitKey=null, creditKey=null;
-  for(const k of keys){
+  const normalize = s=>String(s||'').toLowerCase().replace(/[\s\/\\_\-\r\n]+/g,'');
+  const dateWords = ['postingdate','bookdate','valuedate','transactiondate','transdate','date'];
+  const debitWords = ['debit','debitamount','dr','withdrawal','debit amt','debit_amount'];
+  const creditWords = ['credit','creditamount','cr','deposit','credit amt','credit_amount'];
+  for(const k of headers){
     const nk = normalize(k);
-    if(!dateKey && dateCandidates.some(c=>nk.includes(c))) dateKey=k;
-    if(!debitKey && debitCandidates.some(c=>nk.includes(c))) debitKey=k;
-    if(!creditKey && creditCandidates.some(c=>nk.includes(c))) creditKey=k;
+    if(!dateKey && dateWords.some(w=>nk.includes(w))) dateKey=k;
+    if(!debitKey && debitWords.some(w=>nk.includes(w))) debitKey=k;
+    if(!creditKey && creditWords.some(w=>nk.includes(w))) creditKey=k;
   }
-  // If header match fails, fall back to data-driven detection
+  // Build records
+  const records = json.map(r=>{
+    const rec = {};
+    headers.forEach(h=> rec[h] = r[h]);
+    return rec;
+  });
+  // If any missing, data-driven detection
   if(!dateKey || !debitKey || !creditKey){
-    const possibleHeaders = keys;
-    const sample = json.slice(0,12);
-    // build pseudo-records
-    const recs = sample.map(r=>{
-      const out={};
-      possibleHeaders.forEach(h=> out[h]=r[h]);
-      return out;
-    });
-    const det = detectDateDebitCreditFromRecords(recs);
-    if(!dateKey && det.dateCol) dateKey = det.dateCol;
-    if(!debitKey && det.debitCol) debitKey = det.debitCol;
-    if(!creditKey && det.creditCol) creditKey = det.creditCol;
+    const {conf} = scoreColumns(records, headers);
+    const pick = pickBestColumns(conf, headers);
+    dateKey = dateKey || pick.dateCol;
+    debitKey = debitKey || pick.debitCol;
+    creditKey = creditKey || pick.creditCol;
   }
-  // If still not found, return null
   if(!dateKey || !debitKey || !creditKey) return {ok:false};
-  // Build monthMap
+  // Build month map
   const monthMap = {};
   const sampleRows = [];
-  for(const r of json){
-    const rawDate = r[dateKey];
-    const dt = tryParseDate(rawDate);
+  for(const r of records){
+    const dt = tryParseDate(r[dateKey]);
     if(!dt) continue;
-    const debit = cleanNumeric(r[debitKey]);
-    const credit = cleanNumeric(r[creditKey]);
+    const d = cleanNumeric(r[debitKey]);
+    const c = cleanNumeric(r[creditKey]);
     const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
-    if(!monthMap[mk]) monthMap[mk] = {Debit:0,Credit:0};
-    monthMap[mk].Debit += debit;
-    monthMap[mk].Credit += credit;
-    // keep sample
-    if(sampleRows.length < 20) sampleRows.push({Date:dt.toISOString(),Debit:debit,Credit:credit});
+    if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
+    monthMap[mk].Debit += d;
+    monthMap[mk].Credit += c;
+    if(sampleRows.length < 30) sampleRows.push({Date: dt.toISOString(),Debit:d,Credit:c});
   }
-  return {ok:true, monthMap, sampleRows};
+  return {ok:true, monthMap, sampleRows, detected: {dateKey, debitKey, creditKey}};
 }
 
-/* ---------- High-level handlers ---------- */
+/* ============================
+   PDF text processing -> rows -> detection
+   ============================ */
 
-let lastSummary = [];
-
-async function handleExcelFile(file, statusEl){
-  statusEl.innerText = 'Reading Excel/CSV file...';
-  const data = await file.arrayBuffer();
-  const workbook = XLSX.read(data, {type:'array'});
-  const combined = {};
-  const sampleRowsAll = [];
-  for(const sheetName of workbook.SheetNames){
-    statusEl.innerText = `Processing sheet "${sheetName}"...`;
-    const sheet = workbook.Sheets[sheetName];
-    const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
-    if(!json || json.length===0) continue;
-    const res = processSheetJson(json);
-    if(!res.ok) { /* skip sheet if not recognized */ continue; }
-    // merge into combined monthMap
-    for(const mk of Object.keys(res.monthMap)){
-      if(!combined[mk]) combined[mk] = {Debit:0,Credit:0};
-      combined[mk].Debit += res.monthMap[mk].Debit;
-      combined[mk].Credit += res.monthMap[mk].Credit;
-    }
-    res.sampleRows.forEach(s=>sampleRowsAll.push(s));
-  }
-  return {monthMap:combined, sampleRows:sampleRowsAll};
+function rowsFromText(text){
+  const rows = linesToRows(text);
+  const headerIdx = detectHeaderRow(rows);
+  const {headers, records} = rowsToRecordsFromRows(rows, headerIdx);
+  return {headers, records, headerIdx};
 }
 
-async function handlePDFFile(file, statusEl){
-  statusEl.innerText = 'Extracting text from PDF...';
-  const text = await extractTextFromPDF(file, statusEl);
-  // Now try to convert text into rows and detect columns
-  statusEl.innerText = 'Parsing PDF text...';
-  // First, try to detect tabular blocks (lines with many spaces/tabs)
-  const rows = textToRows(text);
-  // Try header detection
-  const {columns, dataRows, headerIdx, transposed} = detectColumnsFromRows(rows);
-  let monthMap = {};
-  let sampleRows = [];
-  if(columns && dataRows && dataRows.length){
-    // If columns are header strings, transform
-    if(headerIdx>=0){
-      const recs = rowsToRecords(columns, dataRows);
-      const det = detectDateDebitCreditFromRecords(recs);
-      const {dateCol, debitCol, creditCol} = det;
-      if(!dateCol || !debitCol || !creditCol){
-        // fallback: try scanning each row for date + two amounts
-        const fallback = parseFreeTextLinesToRecords(text);
-        return fallback;
-      }
-      // Build monthMap
-      for(const rec of recs){
-        const dt = tryParseDate(rec[dateCol]);
-        if(!dt) continue;
-        const debit = cleanNumeric(rec[debitCol]);
-        const credit = cleanNumeric(rec[creditCol]);
-        const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
-        monthMap[mk] = monthMap[mk] || {Debit:0,Credit:0};
-        monthMap[mk].Debit += debit;
-        monthMap[mk].Credit += credit;
-        if(sampleRows.length < 20) sampleRows.push({Date:dt.toISOString(),Debit:debit,Credit:credit});
-      }
-      return {monthMap, sampleRows};
-    } else {
-      // No header: try transposed approach
-      if(transposed){
-        // build pseudo records by picking likely date col and numeric cols
-        const keys = Object.keys(transposed).map(i=>'col'+i);
-        const recs = rowsToRecords(keys, rows);
-        const det = detectDateDebitCreditFromRecords(recs);
-        if(det.dateCol && det.debitCol && det.creditCol){
-          for(const rec of recs){
-            const dt = tryParseDate(rec[det.dateCol]);
-            if(!dt) continue;
-            const debit = cleanNumeric(rec[det.debitCol]);
-            const credit = cleanNumeric(rec[det.creditCol]);
-            const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
-            monthMap[mk] = monthMap[mk] || {Debit:0,Credit:0};
-            monthMap[mk].Debit += debit;
-            monthMap[mk].Credit += credit;
-            if(sampleRows.length < 20) sampleRows.push({Date:dt.toISOString(),Debit:debit,Credit:credit});
-          }
-          return {monthMap, sampleRows};
-        }
-      }
-    }
-  }
-  // If tabular approaches fail, run a general free-text parser
-  return parseFreeTextLinesToRecords(text);
+function rowsToRecords(rows){ // helper from rows array where rows[0] might be header
+  const headerIdx = detectHeaderRow(rows);
+  return rowsToRecordsFromRows(rows, headerIdx);
 }
 
-/* ---------- Free-text parser: search for lines containing a date + two amounts ---------- */
+/* ============================
+   Free-text fallback parser
+   ============================ */
 
-function parseFreeTextLinesToRecords(text){
+function parseFreeTextLines(text){
+  // scan lines, look for a date and two numbers -> treat as record
   const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   const monthMap = {};
   const sampleRows = [];
   const dateRegex = /(\d{1,2}[-\/ ](?:[A-Za-z]{3,9}|\d{1,2})[-\/ ]\d{2,4})|(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|([A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4})/;
   for(const line of lines){
-    // find date substring
-    const dateMatch = line.match(dateRegex);
-    if(!dateMatch) continue;
-    const dateStr = dateMatch[0];
+    const m = line.match(dateRegex);
+    if(!m) continue;
+    const dateStr = m[0];
     const dt = tryParseDate(dateStr);
     if(!dt) continue;
-    // find numbers in the rest of the line
-    const rest = line.replace(dateStr,' ');
-    // numbers with commas or parentheses
-    const nums = rest.match(/-?\(?\d{1,3}(?:[,\s]\d{3})*(?:\.\d+)?\)?/g);
-    if(!nums || nums.length===0) continue;
-    // Strategy: choose the last two numbers as (debit, credit) or (credit, balance). We'll map:
-    // If only one number -> uncertain; skip
-    // If two or more numbers -> use last two as amounts, try to deduce which is debit/credit by sign or by typical positions
-    const cleaned = nums.map(n=>cleanNumeric(n));
-    if(cleaned.length===1) continue;
-    // pick two numbers near each other (last two)
-    const a = cleaned[cleaned.length-2];
-    const b = cleaned[cleaned.length-1];
-    // Heuristic: positive numbers are credits, debits; if one negative -> debit; if both positive -> likely debit then credit? ambiguous.
-    let debit = 0, credit = 0;
-    // Many bank prints show Debit column first then Credit; in your samples credits are positive and debits positive — we can't be perfect; choose:
-    // If b is much larger and line contains words like 'deposit' -> b is credit
-    if(/deposit|cash deposit|received|credit/i.test(line)) { credit = b; debit = a; }
-    else if(/withdrawal|debit|paid|sent|transfer/i.test(line)){ debit = a; credit = b; }
-    else {
-      // fallback: assign by sign
-      if(a<0){ debit = Math.abs(a); credit = b; }
-      else if(b<0){ debit = Math.abs(b); credit = a; }
+    // find numbers
+    const nums = (line.replace(dateStr,' ')).match(/-?\(?\d{1,3}(?:[,\s]\d{3})*(?:\.\d+)?\)?/g);
+    if(!nums || nums.length < 1) continue;
+    // heuristic: use last two numbers
+    const numbers = nums.map(n=>cleanNumeric(n));
+    if(numbers.length === 1){
+      // if only one number, treat as credit if 'deposit' appears else debit
+      const n = numbers[0];
+      const isDeposit = /deposit|received|payment/i.test(line);
+      const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
+      if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
+      if(isDeposit) monthMap[mk].Credit += n; else monthMap[mk].Debit += n;
+      if(sampleRows.length < 30) sampleRows.push({Date: dt.toISOString(),Debit: isDeposit?0:n,Credit: isDeposit?n:0});
+    } else {
+      const a = numbers[numbers.length-2], b = numbers[numbers.length-1];
+      // heuristics using words
+      let debit=0, credit=0;
+      if(/deposit|received|credit/i.test(line)){ debit = a; credit = b; if(b < a){ debit = b; credit = a; } }
+      else if(/withdraw|withdrawal|paid|transfer|debit/i.test(line)){ debit = a; credit = b; }
       else {
-        // assume a = debit, b = credit (common layout)
-        debit = a; credit = b;
+        // sign-based
+        if(a < 0) debit = Math.abs(a), credit = b;
+        else if(b < 0) debit = Math.abs(b), credit = a;
+        else { debit = a; credit = b; }
       }
+      const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
+      if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
+      monthMap[mk].Debit += debit;
+      monthMap[mk].Credit += credit;
+      if(sampleRows.length < 30) sampleRows.push({Date: dt.toISOString(),Debit:debit,Credit:credit, line});
     }
-    const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
-    if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
-    monthMap[mk].Debit += debit;
-    monthMap[mk].Credit += credit;
-    if(sampleRows.length < 30) sampleRows.push({Date:dt.toISOString(), Debit:debit, Credit:credit, line});
   }
   return {monthMap, sampleRows};
 }
 
-/* ---------- UI wiring ---------- */
+/* ============================
+   Top-level handlers for file types
+   ============================ */
+
+async function handleExcelFile(file, statusEl){
+  statusEl.innerText = 'Reading Excel/CSV...';
+  const arr = await file.arrayBuffer();
+  const workbook = XLSX.read(arr, {type:'array'});
+  const combined = {};
+  const sample = [];
+  const detectedColumns = [];
+  for(const sName of workbook.SheetNames){
+    statusEl.innerText = `Processing sheet: ${sName}`;
+    const sheet = workbook.Sheets[sName];
+    const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    const res = processSheetJson(json);
+    if(!res.ok) { continue; }
+    Object.keys(res.monthMap).forEach(mk=>{
+      if(!combined[mk]) combined[mk] = {Debit:0, Credit:0};
+      combined[mk].Debit += res.monthMap[mk].Debit;
+      combined[mk].Credit += res.monthMap[mk].Credit;
+    });
+    res.sampleRows.forEach(r=> sample.push(r));
+    if(res.detected) detectedColumns.push({sheet:sName, ...res.detected});
+  }
+  return {monthMap: combined, sampleRows: sample, detectedColumns};
+}
+
+async function handlePDFFile(file, statusEl){
+  statusEl.innerText = 'Extracting PDF text...';
+  const text = await extractTextFromPDF(file, statusEl);
+  statusEl.innerText = 'Parsing text into rows...';
+  const rows = linesToRows(text);
+  // attempt table extraction
+  const hdrIdx = detectHeaderRow(rows);
+  if(hdrIdx >= 0){
+    const {headers, records} = rowsToRecordsFromRows(rows, hdrIdx);
+    const det = detectDateDebitCreditFromRecords(records, headers);
+  }
+  // First try structured rows approach
+  const {headers, records} = rowsToRecordsFromRows(rows, detectHeaderRow(rows));
+  // Score columns
+  const scoreRes = scoreColumns(records, headers);
+  const pick = pickBestColumns(scoreRes.conf, headers);
+  if(pick.dateCol && pick.debitCol && pick.creditCol && (pick.confidences.dateConf + pick.confidences.debitConf + pick.confidences.creditConf) > 0.5){
+    // Build monthMap from records
+    const monthMap = {};
+    const sampleRows = [];
+    for(const rec of records){
+      const dt = tryParseDate(rec[pick.dateCol]);
+      if(!dt) continue;
+      const d = cleanNumeric(rec[pick.debitCol]);
+      const c = cleanNumeric(rec[pick.creditCol]);
+      const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
+      if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
+      monthMap[mk].Debit += d;
+      monthMap[mk].Credit += c;
+      if(sampleRows.length < 30) sampleRows.push({Date:dt.toISOString(),Debit:d,Credit:c});
+    }
+    return {monthMap, sampleRows, detected: pick};
+  }
+  // fallback to free-text extraction
+  const fallback = parseFreeTextLines(text);
+  return fallback;
+}
+
+// helper used above in PDF path
+function detectDateDebitCreditFromRecords(records, headers){
+  const res = scoreColumns(records, headers);
+  return pickBestColumns(res.conf, headers);
+}
+
+/* ============================
+   UI wiring & main flow
+   ============================ */
 
 const fileInput = document.getElementById('fileInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
@@ -508,17 +524,65 @@ const tableOutput = document.getElementById('tableOutput');
 const rawOutput = document.getElementById('rawOutput');
 const summaryCard = document.getElementById('summaryCard');
 const rawCard = document.getElementById('rawCard');
+const mappingUI = document.getElementById('mappingUI');
+const dateSelect = document.getElementById('dateSelect');
+const debitSelect = document.getElementById('debitSelect');
+const creditSelect = document.getElementById('creditSelect');
+const aiMode = document.getElementById('aiMode');
+const confThresh = document.getElementById('confThresh');
+const mappingDiv = document.getElementById('mappingUI');
 
-let chartBar, chartPie;
+let lastSummary = [];
+let lastDetected = null;
+let currentHeaders = [];
+
+function renderCharts(months, debit, credit){
+  const ctxB = document.getElementById('barChart');
+  const ctxP = document.getElementById('pieChart');
+  if(window._chartBar) window._chartBar.destroy();
+  if(window._chartPie) window._chartPie.destroy();
+  window._chartBar = new Chart(ctxB.getContext('2d'), {
+    type:'bar',
+    data:{ labels:months, datasets:[
+      {label:'Debit', data:debit, backgroundColor:'#ff6384'},
+      {label:'Credit', data:credit, backgroundColor:'#36a2eb'}
+    ]},
+    options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true}}}
+  });
+  window._chartPie = new Chart(ctxP.getContext('2d'), {
+    type:'pie',
+    data:{ labels:['Total Debit','Total Credit'], datasets:[{ data:[debit.reduce((a,b)=>a+b,0), credit.reduce((a,b)=>a+b,0)], backgroundColor:['#ff6384','#36a2eb'] }]},
+    options:{responsive:true}
+  });
+}
+
+function showMappingOptions(headers, detected){
+  mappingDiv.style.display = 'flex';
+  dateSelect.innerHTML = '';
+  debitSelect.innerHTML = '';
+  creditSelect.innerHTML = '';
+  currentHeaders = headers || [];
+  headers.forEach(h=>{
+    const opt1 = document.createElement('option'); opt1.value = h; opt1.text = h; dateSelect.appendChild(opt1);
+    const opt2 = document.createElement('option'); opt2.value = h; opt2.text = h; debitSelect.appendChild(opt2);
+    const opt3 = document.createElement('option'); opt3.value = h; opt3.text = h; creditSelect.appendChild(opt3);
+  });
+  if(detected){
+    if(detected.dateCol) dateSelect.value = detected.dateCol;
+    if(detected.debitCol) debitSelect.value = detected.debitCol;
+    if(detected.creditCol) creditSelect.value = detected.creditCol;
+  }
+}
 
 analyzeBtn.addEventListener('click', async ()=>{
   const f = fileInput.files[0];
-  const name = document.getElementById('statementName').value.trim() || f?.name || 'statement';
-  if(!f){ alert('Select a file first'); return;}
-  statusEl.innerHTML = `<span class="spinner"></span> Starting analysis...`;
+  const name = (document.getElementById('statementName').value.trim()) || (f && f.name) || 'statement';
+  if(!f){ alert('Please choose a file first'); return; }
+  statusEl.innerHTML = '<span class="spinner"></span> Starting analysis';
   summaryCard.style.display = 'none';
   rawCard.style.display = 'none';
-  lastSummary = [];
+  mappingDiv.style.display = 'none';
+  lastSummary = []; lastDetected = null; currentHeaders = [];
   try{
     let res;
     if(f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')){
@@ -526,75 +590,198 @@ analyzeBtn.addEventListener('click', async ()=>{
     } else {
       res = await handleExcelFile(f, statusEl);
     }
-    // res.monthMap keys -> months
-    if(!res || !res.monthMap || Object.keys(res.monthMap).length===0){
-      statusEl.innerText = 'No recognizable data found.';
+    if(!res || !res.monthMap || Object.keys(res.monthMap).length === 0){
+      statusEl.innerText = 'No recognizable data found';
       return;
     }
-    // build table
-    const months = Object.keys(res.monthMap).sort((a,b)=>{
-      // transform "September 2025" -> date
-      const da = new Date(a);
-      const db = new Date(b);
-      return da - db;
-    });
-    let html = `<div style="display:flex;gap:12px;align-items:center;"><div class="muted">File:</div><div style="font-weight:700">${name}</div></div>`;
-    html += `<div style="margin-top:12px" class="table-wrap"><table><thead><tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net</th></tr></thead><tbody>`;
-    let totD=0, totC=0; lastSummary = [];
+    // generate months sorted
+    const months = Object.keys(res.monthMap).sort((a,b)=> new Date(a) - new Date(b));
+    // prepare table
+    let html = `<div style="display:flex;gap:12px;align-items:center"><div class="muted small">File:</div><div style="font-weight:700">${name}</div></div>`;
+    html += '<div style="margin-top:10px"><table><thead><tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net</th></tr></thead><tbody>';
+    let totD=0, totC=0;
+    lastSummary = [];
     months.forEach((m,i)=>{
       const d = res.monthMap[m].Debit || 0;
       const c = res.monthMap[m].Credit || 0;
       const net = c - d;
       totD += d; totC += c;
       html += `<tr><td>${i+1}</td><td>${m}</td><td>${d.toFixed(2)}</td><td>${c.toFixed(2)}</td><td>${net.toFixed(2)}</td></tr>`;
-      lastSummary.push({SNo:i+1, Month:m, Debit: d, Credit: c, Net: net});
+      lastSummary.push({SNo:i+1, Month:m, Debit:d, Credit:c, Net:net});
     });
     html += `<tr style="font-weight:700"><td colspan="2">Grand Total</td><td>${totD.toFixed(2)}</td><td>${totC.toFixed(2)}</td><td>${(totC-totD).toFixed(2)}</td></tr>`;
-    html += `</tbody></table></div>`;
+    html += '</tbody></table></div>';
     tableOutput.innerHTML = html;
     summaryCard.style.display = 'block';
-    // show sample rows
+    // sample rows
     if(res.sampleRows && res.sampleRows.length){
       rawCard.style.display = 'block';
-      rawOutput.innerHTML = '<pre style="font-family:monospace;font-size:12px">' + JSON.stringify(res.sampleRows.slice(0,30),null,2) + '</pre>';
+      rawOutput.innerHTML = '<pre>' + JSON.stringify(res.sampleRows.slice(0,30),null,2) + '</pre>';
+    } else {
+      rawCard.style.display = 'none';
     }
-    statusEl.innerText = 'Analysis done.';
     // render charts
-    renderCharts(months, months.map(m=>res.monthMap[m].Debit||0), months.map(m=>res.monthMap[m].Credit||0));
-  }catch(e){
-    console.error(e);
-    statusEl.innerText = 'Error: ' + e.message;
-    tableOutput.innerHTML = '';
+    renderCharts(months, months.map(m=>res.monthMap[m].Debit || 0), months.map(m=>res.monthMap[m].Credit || 0));
+    statusEl.innerText = 'Analysis complete';
+    // detection assistance if AI Mode wants mapping
+    const mode = aiMode.value;
+    // if the result included detected columns, and user requested assist, show mapping
+    if(mode !== 'auto'){
+      // prepare headers list if available
+      const headerList = (res.detected && res.detected.headers) ? res.detected.headers : (res.detectedColumns ? [].concat(...res.detectedColumns.map(d=>Object.values(d))) : []);
+      // fallback: try to build header list from sampleRows keys
+    }
+    // show mapping dropdowns if assist or manual
+    if(mode === 'assist' || mode === 'manual'){
+      // build header options from either res.detectedColumns or sampleRows keys
+      let headers = [];
+      if(res.detected && res.detected.dateCol) {
+        headers = [res.detected.dateCol, res.detected.debitCol, res.detected.creditCol];
+      } else if(res.detectedColumns && res.detectedColumns.length){
+        headers = Object.values(res.detectedColumns[0]).filter(Boolean);
+      } else {
+        // try from sampleRows keys
+        if(res.sampleRows && res.sampleRows.length){
+          headers = Object.keys(res.sampleRows[0]).map(k=>k);
+        }
+      }
+      // unify & unique
+      headers = Array.from(new Set(headers.filter(Boolean)));
+      if(headers.length){
+        currentHeaders = headers;
+        showMappingOptions(headers, res.detected || null);
+      } else {
+        // As last resort, create select items from the first sheet's raw column names if Excel
+        // For simplicity, try to populate with Month/Date/col0..colN
+        const fallbackHeaders = [];
+        for(let i=0;i<8;i++) fallbackHeaders.push('col'+i);
+        currentHeaders = fallbackHeaders;
+        showMappingOptions(fallbackHeaders, null);
+      }
+    }
+    lastDetected = res.detected || null;
+  }catch(err){
+    console.error(err);
+    statusEl.innerText = 'Error: '+(err.message||err);
   }
 });
 
+// When user applies manual mapping
+document.getElementById('applyMapping').addEventListener('click', async ()=>{
+  // If manual mapping applied, we need to re-aggregate using chosen columns
+  const dateCol = dateSelect.value;
+  const debitCol = debitSelect.value;
+  const creditCol = creditSelect.value;
+  if(!dateCol || !debitCol || !creditCol){ alert('Select all three columns'); return; }
+  statusEl.innerHTML = 'Applying mapping and re-aggregating... <span class="spinner"></span>';
+  // We will reprocess last uploaded file using chosen headers heuristically.
+  // Approach: read file again and attempt to use these column names/indexes.
+  const f = fileInput.files[0];
+  if(!f){ alert('No file'); return; }
+  try{
+    let res;
+    if(f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf')){
+      // For PDFs, manual mapping may be hard. We'll fallback to parsing lines and using index or header names.
+      const text = await extractTextFromPDF(f, statusEl);
+      const rows = linesToRows(text);
+      const headerIdx = detectHeaderRow(rows);
+      const {headers, records} = rowsToRecordsFromRows(rows, headerIdx);
+      // If chosen names are numeric col names like col0.., support that.
+      const chosen = {dateCol, debitCol, creditCol};
+      // Build monthMap
+      const monthMap = {};
+      const sample = [];
+      for(const rec of records){
+        const dt = tryParseDate(rec[dateCol] || rec[dateCol]===0? rec[dateCol] : rec[dateCol]);
+        if(!dt) continue;
+        const d = cleanNumeric(rec[debitCol]);
+        const c = cleanNumeric(rec[creditCol]);
+        const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
+        if(!monthMap[mk]) monthMap[mk] = {Debit:0, Credit:0};
+        monthMap[mk].Debit += d;
+        monthMap[mk].Credit += c;
+        if(sample.length < 30) sample.push({Date: dt.toISOString(),Debit:d,Credit:c});
+      }
+      res = {monthMap, sampleRows: sample};
+    } else {
+      // Excel: load workbook and try to map header names directly
+      const arr = await f.arrayBuffer();
+      const workbook = XLSX.read(arr, {type:'array'});
+      const combined = {}; const sample = [];
+      for(const sName of workbook.SheetNames){
+        const sheet = workbook.Sheets[sName];
+        const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+        if(!json || !json.length) continue;
+        // Try to map by header name; if not found, allow numeric index like col0..colN
+        const keys = Object.keys(json[0]);
+        // If chosen values are in keys use them, else interpret 'colN' as index
+        const mapKey = key => {
+          if(keys.includes(key)) return key;
+          if(/^col\d+$/.test(key)){
+            const idx = parseInt(key.replace('col',''),10);
+            return keys[idx] || null;
+          }
+          // try fuzzy match
+          const norm = key.toLowerCase().replace(/[\s\/\\_\-]+/g,'');
+          const found = keys.find(k=>k.toLowerCase().replace(/[\s\/\\_\-]+/g,'').includes(norm));
+          return found || null;
+        };
+        const dKey = mapKey(dateCol);
+        const drKey = mapKey(debitCol);
+        const crKey = mapKey(creditCol);
+        if(!dKey || !drKey || !crKey) continue;
+        for(const r of json){
+          const dt = tryParseDate(r[dKey]);
+          if(!dt) continue;
+          const d = cleanNumeric(r[drKey]);
+          const c = cleanNumeric(r[crKey]);
+          const mk = `${dt.toLocaleString('default',{month:'long'})} ${dt.getFullYear()}`;
+          if(!combined[mk]) combined[mk] = {Debit:0, Credit:0};
+          combined[mk].Debit += d; combined[mk].Credit += c;
+          if(sample.length < 30) sample.push({Date: dt.toISOString(),Debit:d,Credit:c});
+        }
+      }
+      res = {monthMap: combined, sampleRows: sample};
+    }
+
+    if(!res || !res.monthMap || Object.keys(res.monthMap).length===0){
+      statusEl.innerText = 'Mapping applied but no recognizable data found with chosen columns';
+      return;
+    }
+    // render results
+    const months = Object.keys(res.monthMap).sort((a,b)=> new Date(a) - new Date(b));
+    let html = `<div style="display:flex;gap:12px;align-items:center"><div class="muted small">Mapping applied</div></div>`;
+    html += '<div style="margin-top:10px"><table><thead><tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net</th></tr></thead><tbody>';
+    let totD=0, totC=0; lastSummary=[];
+    months.forEach((m,i)=>{
+      const d = res.monthMap[m].Debit || 0;
+      const c = res.monthMap[m].Credit || 0;
+      const net = c - d; totD+=d; totC+=c;
+      html += `<tr><td>${i+1}</td><td>${m}</td><td>${d.toFixed(2)}</td><td>${c.toFixed(2)}</td><td>${net.toFixed(2)}</td></tr>`;
+      lastSummary.push({SNo:i+1, Month:m, Debit:d, Credit:c, Net:net});
+    });
+    html += `<tr style="font-weight:700"><td colspan="2">Grand Total</td><td>${totD.toFixed(2)}</td><td>${totC.toFixed(2)}</td><td>${(totC-totD).toFixed(2)}</td></tr>`;
+    html += '</tbody></table></div>';
+    tableOutput.innerHTML = html;
+    summaryCard.style.display = 'block';
+    rawCard.style.display = res.sampleRows && res.sampleRows.length ? 'block' : 'none';
+    rawOutput.innerHTML = res.sampleRows && res.sampleRows.length ? '<pre>' + JSON.stringify(res.sampleRows.slice(0,30),null,2) + '</pre>' : '';
+    renderCharts(months, months.map(m=>res.monthMap[m].Debit||0), months.map(m=>res.monthMap[m].Credit||0));
+    statusEl.innerText = 'Mapping applied — done';
+  }catch(e){
+    console.error(e);
+    statusEl.innerText = 'Error applying mapping: '+(e.message||e);
+  }
+});
+
+// Export
 exportBtn.addEventListener('click', ()=>{
-  if(!lastSummary || !lastSummary.length){ alert('No summary to export'); return;}
+  if(!lastSummary || !lastSummary.length){ alert('No summary to export'); return; }
   const ws = XLSX.utils.json_to_sheet(lastSummary);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Monthly Summary');
-  XLSX.writeFile(wb, 'BankSummary.xlsx');
+  XLSX.writeFile(wb, 'Monthly_Bank_Summary.xlsx');
 });
-
-function renderCharts(months, debit, credit){
-  const ctxB = document.getElementById('barChart');
-  const ctxP = document.getElementById('pieChart');
-  if(chartBar) chartBar.destroy();
-  if(chartPie) chartPie.destroy();
-  chartBar = new Chart(ctxB.getContext('2d'), {
-    type:'bar',
-    data: { labels: months, datasets: [
-      { label:'Debit', data: debit, backgroundColor:'#ff6384' },
-      { label:'Credit', data: credit, backgroundColor:'#36a2eb' }
-    ]},
-    options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true}}}
-  });
-  chartPie = new Chart(ctxP.getContext('2d'), {
-    type:'pie',
-    data:{ labels:['Total Debit','Total Credit'], datasets:[{ data:[debit.reduce((a,b)=>a+b,0), credit.reduce((a,b)=>a+b,0)], backgroundColor:['#ff6384','#36a2eb'] }]},
-    options:{responsive:true}
-  });
-}
 
 </script>
 </body>
