@@ -3,44 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AUDACITY ZONE — Bank Dashboard</title>
+<title>Bank Statement Analyzer</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-* {margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif;}
-body {background:#f7f8fa; color:#1a1a1a; line-height:1.6;}
-a {text-decoration:none; color:inherit;}
-nav {display:flex; justify-content:space-between; align-items:center; padding:20px 50px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.1); position:sticky; top:0; z-index:100;}
-.logo {font-size:1.8rem; font-weight:700; color:#0d6efd;}
-nav ul {display:flex; gap:25px; list-style:none;}
-nav ul li {font-weight:600;}
-nav ul li a:hover {color:#0d6efd;}
-.btn {padding:10px 20px; background-color:#0d6efd; color:#fff; border-radius:6px; font-weight:600;}
-.hero {display:flex; flex-direction:column; align-items:center; text-align:center; padding:80px 20px; background:#e9f2ff;}
-.hero h1 {font-size:2.8rem; font-weight:700; color:#0d6efd; margin-bottom:20px;}
-.hero p {font-size:1.2rem; max-width:600px; margin-bottom:30px;}
-.hero .hero-btn {padding:12px 25px; background:#0d6efd; color:#fff; border-radius:8px; font-weight:600;}
-.upload-section {padding:60px 50px; text-align:center;}
-.upload-section h2 {font-size:2rem; color:#0d6efd; margin-bottom:25px;}
-.upload-section input, .upload-section button {margin:10px 0; padding:12px; border-radius:6px; border:1px solid #ccc; font-size:1rem;}
-.upload-section button {background:#0d6efd; color:#fff; border:none; cursor:pointer; transition:background 0.3s;}
-.upload-section button:hover {background:#0956c1;}
-.summary {margin-top:40px; padding:20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); max-width:1000px; margin-left:auto; margin-right:auto; text-align:left;}
-.table-container {overflow-x:auto; margin-top:20px;}
-table {width:100%; border-collapse:collapse; margin-top:10px;}
-th, td {border:1px solid #ccc; padding:8px; text-align:center;}
-th {background-color:#0d6efd; color:#fff;}
-tr:nth-child(even) {background-color:#f2f2f2;}
-.charts {display:flex; flex-wrap:wrap; gap:30px; justify-content:center; margin-top:30px;}
-.chart-card {background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); width:400px;}
-.export-btn {margin-top:20px; padding:10px 20px; background:#198754; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;}
-.export-btn:hover {background:#145c3d;}
-footer {background:#1a1a1a; color:#fff; padding:40px; text-align:center;}
-footer a {color:#0d6efd; margin:0 5px;}
-@media(max-width:768px){nav{flex-direction:column; gap:15px;}.hero h1{font-size:2.2rem;}.upload-section{padding:40px 20px;}.charts{flex-direction:column; align-items:center;}}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+body{background:#f7f8fa;color:#1a1a1a;line-height:1.6;}
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 50px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.1);position:sticky;top:0;z-index:100;}
+.logo{font-size:1.8rem;font-weight:700;color:#0d6efd;}
+nav ul{display:flex;gap:25px;list-style:none;}
+nav ul li{font-weight:600;}
+nav ul li a:hover{color:#0d6efd;}
+.btn{padding:10px 20px;background-color:#0d6efd;color:#fff;border-radius:6px;font-weight:600;}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:80px 20px;background:#e9f2ff;}
+.hero h1{font-size:2.8rem;font-weight:700;color:#0d6efd;margin-bottom:20px;}
+.hero p{font-size:1.2rem;max-width:600px;margin-bottom:30px;}
+.hero .hero-btn{padding:12px 25px;background:#0d6efd;color:#fff;border-radius:8px;font-weight:600;}
+.upload-section{padding:60px 50px;text-align:center;}
+.upload-section h2{font-size:2rem;color:#0d6efd;margin-bottom:25px;}
+.upload-section input,.upload-section button{margin:10px 0;padding:12px;border-radius:6px;border:1px solid #ccc;font-size:1rem;}
+.upload-section button{background:#0d6efd;color:#fff;border:none;cursor:pointer;transition:background 0.3s;}
+.upload-section button:hover{background:#0956c1;}
+.summary{margin-top:40px;padding:20px;background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.05);max-width:1000px;margin-left:auto;margin-right:auto;text-align:left;}
+.table-container{overflow-x:auto;margin-top:20px;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+th{background-color:#0d6efd;color:#fff;}
+tr:nth-child(even){background-color:#f2f2f2;}
+.charts{display:flex;flex-wrap:wrap;gap:30px;justify-content:center;margin-top:30px;}
+.chart-card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.05);width:400px;}
+.export-btn{margin-top:20px;padding:10px 20px;background:#198754;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+.export-btn:hover{background:#145c3d;}
+footer{background:#1a1a1a;color:#fff;padding:40px;text-align:center;}
+footer a{color:#0d6efd;margin:0 5px;}
+@media(max-width:768px){nav{flex-direction:column;gap:15px;}.hero h1{font-size:2.2rem;}.upload-section{padding:40px 20px;}.charts{flex-direction:column;align-items:center;}}
 </style>
 </head>
 <body>
@@ -56,8 +55,8 @@ footer a {color:#0d6efd; margin:0 5px;}
 </nav>
 
 <section class="hero">
-<h1>Upload Bank Statement for AI Auto Summation</h1>
-<p>Automatically detects Date, Debit, Credit columns, sums per month across all sheets, and generates summary & charts.</p>
+<h1>Bank Statement Analyzer</h1>
+<p>Upload any bank statement. Automatically detects Date, Debit, Credit columns and sums transactions per month.</p>
 <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
@@ -65,7 +64,7 @@ footer a {color:#0d6efd; margin:0 5px;}
 <h2>Upload Bank Statement</h2>
 <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
 <br>
-<input type="text" id="statementName" placeholder="Enter Bank Statement Name">
+<input type="text" id="statementName" placeholder="Enter Statement Name">
 <br>
 <button onclick="analyzeStatement()">Analyze</button>
 <button class="export-btn" onclick="exportCSV()">Download Summary CSV</button>
@@ -93,21 +92,33 @@ footer a {color:#0d6efd; margin:0 5px;}
 let barChartInstance, pieChartInstance;
 let summaryData=[];
 
-function normalizeHeader(header){ return header.toString().toLowerCase().replace(/[\s\/\\_\-\r\n]+/g,''); }
-function parseNumber(value){
+function cleanNumber(value){
     if(!value) return 0;
-    value=value.toString().replace(/,/g,'').replace(/\s/g,'').replace(/TZS/gi,'').replace(/!/g,'').trim();
+    value=value.toString().replace(/,/g,'').replace(/\s/g,'').replace(/TZS/gi,'').replace(/[^0-9\.-]/g,'').trim();
     return parseFloat(value)||0;
 }
-function detectColumn(headers, candidates){
+
+function detectColumnsByData(json){
+    const headers=Object.keys(json[0]);
+    let dateCol=null, debitCol=null, creditCol=null;
     for(let h of headers){
-        const nh=normalizeHeader(h);
-        for(let c of candidates){
-            const nc=c.toLowerCase().replace(/[\s\/\\_\-]+/g,'');
-            if(nh.includes(nc)) return h;
+        const values=json.slice(0,5).map(r=>r[h]);
+        if(values.every(v=>v && !isNaN(new Date(v).getTime()))){ dateCol=h; break; }
+    }
+    for(let h of headers){
+        const values=json.slice(0,5).map(r=>cleanNumber(r[h]));
+        if(values.some(v=>v>0) && !debitCol){ debitCol=h; }
+        if(values.some(v=>v<0) && !creditCol){ creditCol=h; }
+    }
+    // Fallback: numeric positive=debit, numeric positive=credit
+    if(!debitCol || !creditCol){
+        for(let h of headers){
+            const values=json.slice(0,5).map(r=>cleanNumber(r[h]));
+            if(values.some(v=>v>0) && !debitCol) debitCol=h;
+            if(values.some(v=>v>0) && !creditCol) creditCol=h;
         }
     }
-    return null;
+    return {dateCol,debitCol,creditCol};
 }
 
 async function analyzeStatement(){
@@ -118,25 +129,23 @@ async function analyzeStatement(){
     if(!statementName){ tableOutput.innerHTML="Please enter a statement name."; return;}
     
     tableOutput.innerHTML=`Analyzing "${statementName}"...`;
+
     try{
         const data=await fileInput.files[0].arrayBuffer();
         const workbook=XLSX.read(data);
         const monthMap={}; summaryData=[];
-        
+
         for(let sheetName of workbook.SheetNames){
             const sheet=workbook.Sheets[sheetName];
             const json=XLSX.utils.sheet_to_json(sheet,{defval:""});
             if(!json.length) continue;
-            const headers=Object.keys(json[0]);
-            const dateKey=detectColumn(headers,['posting date','book date','value date','transaction date','trans date','date']);
-            const debitKey=detectColumn(headers,['debit','debit amount','dr','withdrawal']);
-            const creditKey=detectColumn(headers,['credit','credit amount','cr','deposit']);
-            if(!dateKey || !debitKey || !creditKey) continue;
-            
+            const {dateCol,debitCol,creditCol}=detectColumnsByData(json);
+            if(!dateCol || !debitCol || !creditCol) continue;
+
             json.forEach(row=>{
-                let dateRaw=row[dateKey];
-                let debit=parseNumber(row[debitKey]);
-                let credit=parseNumber(row[creditKey]);
+                let dateRaw=row[dateCol];
+                let debit=cleanNumber(row[debitCol]);
+                let credit=cleanNumber(row[creditCol]);
                 let dateObj=(dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
                 if(isNaN(dateObj)) return;
                 const monthKey=`${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
@@ -148,9 +157,8 @@ async function analyzeStatement(){
 
         if(Object.keys(monthMap).length===0){ tableOutput.innerHTML="No recognizable data found."; return;}
 
-        let tableHTML=`<div class="table-container"><table><thead>
-        <tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net Total</th></tr></thead><tbody>`;
-        let totalDebit=0, totalCredit=0;
+        let tableHTML=`<div class="table-container"><table><thead><tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net Total</th></tr></thead><tbody>`;
+        let totalDebit=0,totalCredit=0;
         Object.keys(monthMap).forEach((month,i)=>{
             const debit=monthMap[month].Debit;
             const credit=monthMap[month].Credit;
@@ -163,7 +171,8 @@ async function analyzeStatement(){
         tableHTML+=`</tbody></table></div>`;
         tableOutput.innerHTML=tableHTML;
 
-        renderCharts(Object.keys(monthMap), Object.values(monthMap).map(m=>m.Debit), Object.values(monthMap).map(m=>m.Credit));
+        renderCharts(Object.keys(monthMap),Object.values(monthMap).map(m=>m.Debit),Object.values(monthMap).map(m=>m.Credit));
+
     }catch(err){ tableOutput.innerHTML=`Error: ${err.message}`; }
 }
 
@@ -173,18 +182,18 @@ function renderCharts(months,debitData,creditData){
     barChartInstance=new Chart(barCtx,{
         type:'bar',
         data:{labels:months,datasets:[
-            {label:'Debit', data:debitData, backgroundColor:'#ff6384'},
-            {label:'Credit', data:creditData, backgroundColor:'#36a2eb'}
+            {label:'Debit',data:debitData,backgroundColor:'#ff6384'},
+            {label:'Credit',data:creditData,backgroundColor:'#36a2eb'}
         ]},
-        options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true}}}
+        options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{stacked:true},y:{stacked:true}}}
     });
 
     const pieCtx=document.getElementById('pieChart').getContext('2d');
     if(pieChartInstance) pieChartInstance.destroy();
     pieChartInstance=new Chart(pieCtx,{
         type:'pie',
-        data:{labels:['Total Debit','Total Credit'], datasets:[{
-            data:[debitData.reduce((a,b)=>a+b,0), creditData.reduce((a,b)=>a+b,0)],
+        data:{labels:['Total Debit','Total Credit'],datasets:[{
+            data:[debitData.reduce((a,b)=>a+b,0),creditData.reduce((a,b)=>a+b,0)],
             backgroundColor:['#ff6384','#36a2eb']
         }]},
         options:{responsive:true}
@@ -195,8 +204,8 @@ function exportCSV(){
     if(!summaryData.length){ alert("No data to export."); return;}
     const ws=XLSX.utils.json_to_sheet(summaryData);
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Summary");
-    XLSX.writeFile(wb, "BankStatement_Summary.xlsx");
+    XLSX.utils.book_append_sheet(wb,ws,"Summary");
+    XLSX.writeFile(wb,"BankStatement_Summary.xlsx");
 }
 </script>
 </body>
