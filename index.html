@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif;}
+* {margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif;}
 body {background:#f7f8fa; color:#1a1a1a; line-height:1.6;}
 a {text-decoration:none; color:inherit;}
 nav {display:flex; justify-content:space-between; align-items:center; padding:20px 50px; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.1); position:sticky; top:0; z-index:100;}
@@ -29,7 +29,7 @@ nav ul li a:hover {color:#0d6efd;}
 .upload-section input, .upload-section button {margin:10px 0; padding:12px; border-radius:6px; border:1px solid #ccc; font-size:1rem;}
 .upload-section button {background:#0d6efd; color:#fff; border:none; cursor:pointer; transition:background 0.3s;}
 .upload-section button:hover {background:#0956c1;}
-.summary {margin-top:40px; padding:20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); max-width:900px; margin-left:auto; margin-right:auto; text-align:left;}
+.summary {margin-top:40px; padding:20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); max-width:1000px; margin-left:auto; margin-right:auto; text-align:left;}
 .table-container {overflow-x:auto; margin-top:20px;}
 table {width:100%; border-collapse:collapse; margin-top:10px;}
 th, td {border:1px solid #ccc; padding:8px; text-align:center;}
@@ -37,6 +37,8 @@ th {background-color:#0d6efd; color:#fff;}
 tr:nth-child(even) {background-color:#f2f2f2;}
 .charts {display:flex; flex-wrap:wrap; gap:30px; justify-content:center; margin-top:30px;}
 .chart-card {background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); width:400px;}
+.export-btn {margin-top:20px; padding:10px 20px; background:#198754; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;}
+.export-btn:hover {background:#145c3d;}
 footer {background:#1a1a1a; color:#fff; padding:40px; text-align:center;}
 footer a {color:#0d6efd; margin:0 5px;}
 @media(max-width:768px){nav{flex-direction:column; gap:15px;}.hero h1{font-size:2.2rem;}.upload-section{padding:40px 20px;}.charts{flex-direction:column; align-items:center;}}
@@ -55,8 +57,8 @@ footer a {color:#0d6efd; margin:0 5px;}
 </nav>
 
 <section class="hero">
-<h1>Upload Your Bank Statement for Instant Insights</h1>
-<p>Excel or CSV. Enter a statement name and click Analyze to see summaries, totals, and charts instantly.</p>
+<h1>Upload Your Bank Statement for Auto Summation</h1>
+<p>Excel or CSV. The system automatically reads your statement, sums monthly figures, and produces totals instantly.</p>
 <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
@@ -67,6 +69,7 @@ footer a {color:#0d6efd; margin:0 5px;}
 <input type="text" id="statementName" placeholder="Enter Bank Statement Name">
 <br>
 <button onclick="analyzeStatement()">Analyze</button>
+<button class="export-btn" onclick="exportCSV()">Download Summary CSV</button>
 
 <div class="summary" id="summary">
 <h3>Summary & Insights</h3>
@@ -90,21 +93,25 @@ footer a {color:#0d6efd; margin:0 5px;}
 
 <script>
 let barChartInstance, pieChartInstance;
+let summaryData=[];
 
-// clean string keys
+// Helpers
 function cleanKey(key){ return key.toString().trim().toLowerCase(); }
-
-// clean numbers (remove commas/spaces)
 function parseNumber(num){ if(!num) return 0; return parseFloat(num.toString().replace(/,/g,'').replace(/\s/g,''))||0; }
 
+// AI-style column detection
+function detectColumn(headers, variations){
+    return headers.find(h=> variations.some(v=>h.includes(v)));
+}
+
+// Analyze statement
 async function analyzeStatement(){
   const fileInput=document.getElementById('fileInput');
   const statementName=document.getElementById('statementName').value.trim();
   const tableOutput=document.getElementById('tableOutput');
-
   if(!fileInput.files.length){ tableOutput.innerHTML="Please select a file to analyze."; return;}
   if(!statementName){ tableOutput.innerHTML="Please enter a name for your statement."; return;}
-
+  
   const file=fileInput.files[0];
   tableOutput.innerHTML=`Analyzing "${statementName}"...`;
 
@@ -117,59 +124,70 @@ async function analyzeStatement(){
 
     if(!json.length){ tableOutput.innerHTML="No data found in file."; return;}
 
-    // detect column keys
-    const headers=Object.keys(json[0]).map(cleanKey);
-    const transKey=headers.find(h=>h.includes('trans date'));
-    const debitKey=headers.find(h=>h.includes('debit'));
-    const creditKey=headers.find(h=>h.includes('credit'));
+    const headers = Object.keys(json[0]).map(cleanKey);
+
+    // Variations for AI-style detection
+    const transVariations=['trans date','date','transaction date','posting date'];
+    const debitVariations=['debit','dr','amount debited','withdrawal'];
+    const creditVariations=['credit','cr','amount credited','deposit'];
+
+    const transKey = detectColumn(headers, transVariations);
+    const debitKey = detectColumn(headers, debitVariations);
+    const creditKey = detectColumn(headers, creditVariations);
 
     if(!transKey || !debitKey || !creditKey){
-      tableOutput.innerHTML="File must contain columns: TRANS DATE, DEBIT, CREDIT";
+      tableOutput.innerHTML="Columns not detected. Please ensure your file has Date, Debit, and Credit (variations accepted: Transaction Date, Posting Date, Dr, Cr, Deposit, Withdrawal).";
       return;
     }
 
     const monthMap={};
+    summaryData=[];
+    let runningBalance=0;
+
     json.forEach(row=>{
       let dateRaw=row[Object.keys(row).find(k=>cleanKey(k)===transKey)];
       let debit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===debitKey)]);
       let credit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===creditKey)]);
 
-      let dateObj = (dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
+      let dateObj=(dateRaw instanceof Date)? dateRaw : new Date(dateRaw);
       if(isNaN(dateObj)) return;
 
-      const monthKey = `${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
+      const monthKey=`${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
       if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0,Date:dateObj};
-      monthMap[monthKey].Debit += debit;
-      monthMap[monthKey].Credit += credit;
+      monthMap[monthKey].Debit+=debit;
+      monthMap[monthKey].Credit+=credit;
     });
 
-    const months = Object.keys(monthMap).sort((a,b)=> monthMap[a].Date - monthMap[b].Date);
+    const months=Object.keys(monthMap).sort((a,b)=> monthMap[a].Date - monthMap[b].Date);
 
-    // build table
+    // Build summary table
     let tableHTML=`<div class="table-container"><table><thead>
-      <tr><th>S/N</th><th>Month</th><th>Date</th><th>Debit</th><th>Credit</th></tr></thead><tbody>`;
+      <tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Total</th></tr></thead><tbody>`;
 
-    for(let i=0;i<14;i++){
-      let month=months[i]||'';
-      let debit=month? monthMap[month].Debit.toFixed(2) : '';
-      let credit=month? monthMap[month].Credit.toFixed(2) : '';
-      let date=month? monthMap[month].Date.toLocaleString('default',{month:'long', year:'numeric'}) : '';
-      let sn=(i<12 && month)? i+1 : '';
-      tableHTML += `<tr><td>${sn}</td><td>${month}</td><td>${date}</td><td>${debit}</td><td>${credit}</td></tr>`;
-    }
+    let totalDebit=0, totalCredit=0;
+    months.forEach((month,i)=>{
+      const debit=monthMap[month].Debit;
+      const credit=monthMap[month].Credit;
+      const monthTotal=credit - debit;
+      totalDebit+=debit;
+      totalCredit+=credit;
+      summaryData.push({SNo:i+1, Month:month, Debit:debit, Credit:credit, Total:monthTotal});
+      tableHTML+=`<tr><td>${i+1}</td><td>${month}</td><td>${debit.toFixed(2)}</td><td>${credit.toFixed(2)}</td><td>${monthTotal.toFixed(2)}</td></tr>`;
+    });
 
+    tableHTML+=`<tr style="font-weight:bold;"><td colspan="2">Grand Total</td><td>${totalDebit.toFixed(2)}</td><td>${totalCredit.toFixed(2)}</td><td>${(totalCredit-totalDebit).toFixed(2)}</td></tr>`;
     tableHTML+=`</tbody></table></div>`;
-    tableOutput.innerHTML = tableHTML;
+    tableOutput.innerHTML=tableHTML;
 
-    const debitData = months.map(m=>monthMap[m].Debit);
-    const creditData = months.map(m=>monthMap[m].Credit);
-    renderCharts(months,debitData,creditData);
+    // Render charts
+    renderCharts(months, months.map(m=>monthMap[m].Debit), months.map(m=>monthMap[m].Credit));
 
   } catch(err){
     tableOutput.innerHTML=`Error analyzing file: ${err.message}`;
   }
 }
 
+// Charts
 function renderCharts(months,debitData,creditData){
   const barCtx=document.getElementById('barChart').getContext('2d');
   if(barChartInstance) barChartInstance.destroy();
@@ -179,7 +197,7 @@ function renderCharts(months,debitData,creditData){
       {label:'Debit', data:debitData, backgroundColor:'#ff6384'},
       {label:'Credit', data:creditData, backgroundColor:'#36a2eb'}
     ]},
-    options:{responsive:true, plugins:{legend:{position:'top'}}}
+    options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true}}}
   });
 
   const pieCtx=document.getElementById('pieChart').getContext('2d');
@@ -192,6 +210,15 @@ function renderCharts(months,debitData,creditData){
     }]},
     options:{responsive:true}
   });
+}
+
+// Export CSV
+function exportCSV(){
+  if(!summaryData.length){ alert("No data to export."); return;}
+  const ws=XLSX.utils.json_to_sheet(summaryData);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Summary");
+  XLSX.writeFile(wb, "BankStatement_Summary.xlsx");
 }
 </script>
 </body>
