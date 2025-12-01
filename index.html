@@ -57,8 +57,8 @@ footer a {color:#0d6efd; margin:0 5px;}
 </nav>
 
 <section class="hero">
-<h1>Upload Your Bank Statement for Auto Summation</h1>
-<p>Excel or CSV. The system automatically reads your statement, sums monthly figures, and produces totals instantly.</p>
+<h1>Upload Your Bank Statement for AI Auto Summation</h1>
+<p>Supports any bank statement. Automatically detects Date, Debit, Credit columns and produces monthly totals and charts instantly.</p>
 <a href="#upload" class="hero-btn">Start Now</a>
 </section>
 
@@ -95,23 +95,20 @@ footer a {color:#0d6efd; margin:0 5px;}
 let barChartInstance, pieChartInstance;
 let summaryData=[];
 
-// Helpers
 function cleanKey(key){ return key.toString().trim().toLowerCase(); }
 function parseNumber(num){ if(!num) return 0; return parseFloat(num.toString().replace(/,/g,'').replace(/\s/g,''))||0; }
 
-// AI-style column detection
 function detectColumn(headers, variations){
-    return headers.find(h=> variations.some(v=>h.includes(v)));
+  return headers.find(h=> variations.some(v=> h.includes(v.toLowerCase())));
 }
 
-// Analyze statement
 async function analyzeStatement(){
   const fileInput=document.getElementById('fileInput');
   const statementName=document.getElementById('statementName').value.trim();
   const tableOutput=document.getElementById('tableOutput');
   if(!fileInput.files.length){ tableOutput.innerHTML="Please select a file to analyze."; return;}
   if(!statementName){ tableOutput.innerHTML="Please enter a name for your statement."; return;}
-  
+
   const file=fileInput.files[0];
   tableOutput.innerHTML=`Analyzing "${statementName}"...`;
 
@@ -124,28 +121,27 @@ async function analyzeStatement(){
 
     if(!json.length){ tableOutput.innerHTML="No data found in file."; return;}
 
-    const headers = Object.keys(json[0]).map(cleanKey);
+    const headers=Object.keys(json[0]).map(cleanKey);
 
-    // Variations for AI-style detection
-    const transVariations=['trans date','date','transaction date','posting date'];
-    const debitVariations=['debit','dr','amount debited','withdrawal'];
-    const creditVariations=['credit','cr','amount credited','deposit'];
+    // AI-style detection with common variations
+    const dateVars=['posting date','book date','value date','date'];
+    const debitVars=['debit','debit amount','dr','withdrawal','debit amount'];
+    const creditVars=['credit','credit amount','cr','deposit','credit amount'];
 
-    const transKey = detectColumn(headers, transVariations);
-    const debitKey = detectColumn(headers, debitVariations);
-    const creditKey = detectColumn(headers, creditVariations);
+    const dateKey=detectColumn(headers,dateVars);
+    const debitKey=detectColumn(headers,debitVars);
+    const creditKey=detectColumn(headers,creditVars);
 
-    if(!transKey || !debitKey || !creditKey){
-      tableOutput.innerHTML="Columns not detected. Please ensure your file has Date, Debit, and Credit (variations accepted: Transaction Date, Posting Date, Dr, Cr, Deposit, Withdrawal).";
+    if(!dateKey || !debitKey || !creditKey){
+      tableOutput.innerHTML="Unable to detect Date, Debit, or Credit column. Ensure your file has any date, debit, and credit columns.";
       return;
     }
 
     const monthMap={};
     summaryData=[];
-    let runningBalance=0;
 
     json.forEach(row=>{
-      let dateRaw=row[Object.keys(row).find(k=>cleanKey(k)===transKey)];
+      let dateRaw=row[Object.keys(row).find(k=>cleanKey(k)===dateKey)];
       let debit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===debitKey)]);
       let credit=parseNumber(row[Object.keys(row).find(k=>cleanKey(k)===creditKey)]);
 
@@ -153,41 +149,39 @@ async function analyzeStatement(){
       if(isNaN(dateObj)) return;
 
       const monthKey=`${dateObj.toLocaleString('default',{month:'long'})} ${dateObj.getFullYear()}`;
-      if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0,Date:dateObj};
+      if(!monthMap[monthKey]) monthMap[monthKey]={Debit:0,Credit:0};
       monthMap[monthKey].Debit+=debit;
       monthMap[monthKey].Credit+=credit;
     });
 
-    const months=Object.keys(monthMap).sort((a,b)=> monthMap[a].Date - monthMap[b].Date);
+    const months=Object.keys(monthMap).sort((a,b)=> new Date(monthMap[a].Date) - new Date(monthMap[b].Date));
 
-    // Build summary table
     let tableHTML=`<div class="table-container"><table><thead>
-      <tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Total</th></tr></thead><tbody>`;
+      <tr><th>S/N</th><th>Month</th><th>Debit</th><th>Credit</th><th>Net Total</th></tr></thead><tbody>`;
 
     let totalDebit=0, totalCredit=0;
-    months.forEach((month,i)=>{
+    Object.keys(monthMap).forEach((month,i)=>{
       const debit=monthMap[month].Debit;
       const credit=monthMap[month].Credit;
-      const monthTotal=credit - debit;
+      const net=credit-debit;
       totalDebit+=debit;
       totalCredit+=credit;
-      summaryData.push({SNo:i+1, Month:month, Debit:debit, Credit:credit, Total:monthTotal});
-      tableHTML+=`<tr><td>${i+1}</td><td>${month}</td><td>${debit.toFixed(2)}</td><td>${credit.toFixed(2)}</td><td>${monthTotal.toFixed(2)}</td></tr>`;
+      summaryData.push({SNo:i+1, Month:month, Debit:debit, Credit:credit, NetTotal:net});
+      tableHTML+=`<tr><td>${i+1}</td><td>${month}</td><td>${debit.toFixed(2)}</td><td>${credit.toFixed(2)}</td><td>${net.toFixed(2)}</td></tr>`;
     });
 
     tableHTML+=`<tr style="font-weight:bold;"><td colspan="2">Grand Total</td><td>${totalDebit.toFixed(2)}</td><td>${totalCredit.toFixed(2)}</td><td>${(totalCredit-totalDebit).toFixed(2)}</td></tr>`;
     tableHTML+=`</tbody></table></div>`;
     tableOutput.innerHTML=tableHTML;
 
-    // Render charts
-    renderCharts(months, months.map(m=>monthMap[m].Debit), months.map(m=>monthMap[m].Credit));
+    renderCharts(Object.keys(monthMap), Object.values(monthMap).map(m=>m.Debit), Object.values(monthMap).map(m=>m.Credit));
 
   } catch(err){
     tableOutput.innerHTML=`Error analyzing file: ${err.message}`;
   }
 }
 
-// Charts
+// Render Charts
 function renderCharts(months,debitData,creditData){
   const barCtx=document.getElementById('barChart').getContext('2d');
   if(barChartInstance) barChartInstance.destroy();
